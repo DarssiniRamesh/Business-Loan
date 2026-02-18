@@ -204,74 +204,99 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor: try refresh-once then retry. If refresh fails, clear + redirect.
+/**
+ * A tiny axios client without interceptors, used only for token refresh.
+ * This avoids infinite loops (refresh request itself getting intercepted).
+ */
+const refreshClient = axios.create({
+  baseURL: resolveBaseUrl(),
+  withCredentials: false,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+function isAuthEndpoint(url) {
+  const u = String(url || "");
+  // All auth endpoints are mounted under /api/auth/*, but axios calls them as /auth/*
+  // because baseURL already includes /api.
+  return u.includes("/auth/login") || u.includes("/auth/refresh") || u.includes("/auth/logout") || u.includes("/auth/register");
+}
+
+let refreshInFlightPromise = null;
+
+// Response interceptor: refresh-once then retry (single-flight).
 apiClient.interceptors.response.use(
   (res) => res,
   async (error) => {
     const status = error?.response?.status;
     const originalRequest = error?.config;
 
-    // Only act on 401 and only once per request.
-    if (status !== 401 || !originalRequest) {
-      return Promise.reject(error);
-    }
+    // If we don't have a request to retry, just bubble up.
+    if (!originalRequest) return Promise.reject(error);
 
-    // Avoid infinite loops.
-    if (originalRequest.__isRetryAfterRefresh) {
+    // Avoid refresh loops on auth endpoints themselves.
+    if (status === 401 && !isAuthEndpoint(originalRequest.url)) {
+      // Prevent infinite retry loops.
+      if (originalRequest.__isRetryAfterRefresh) {
+        clearTokens();
+        if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+          window.location.assign("/login");
+        }
+        return Promise.reject(error);
+      }
+
+      const refreshToken = getRefreshToken();
+
+      // If we have a refresh token, try to refresh exactly once (single-flight).
+      if (refreshToken) {
+        try {
+          if (!refreshInFlightPromise) {
+            refreshInFlightPromise = (async () => {
+              const res = await refreshClient.post("/auth/refresh", { refreshToken });
+              const { accessToken, refreshToken: newRefreshToken } = extractTokensFromResponse(res.data);
+              setTokens({ accessToken, refreshToken: newRefreshToken });
+              return accessToken;
+            })().finally(() => {
+              refreshInFlightPromise = null;
+            });
+          }
+
+          const newAccessToken = await refreshInFlightPromise;
+
+          // If refresh didn't return a usable access token, treat as logged out.
+          if (!newAccessToken) {
+            clearTokens();
+            if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+              window.location.assign("/login");
+            }
+            return Promise.reject(error);
+          }
+
+          // Retry original request with fresh Authorization header.
+          originalRequest.__isRetryAfterRefresh = true;
+          originalRequest.headers = originalRequest.headers ?? {};
+          originalRequest.headers.Authorization = formatAuthorizationHeaderValue(newAccessToken);
+
+          return apiClient.request(originalRequest);
+        } catch (refreshErr) {
+          // Refresh failed: clear session and force re-login.
+          clearTokens();
+          if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+            window.location.assign("/login");
+          }
+          return Promise.reject(refreshErr);
+        }
+      }
+
+      // No refresh token => logged out.
       clearTokens();
       if (typeof window !== "undefined" && window.location.pathname !== "/login") {
         window.location.assign("/login");
       }
-      return Promise.reject(error);
     }
 
-    // Don't attempt refresh for auth endpoints themselves.
-    const url = String(originalRequest?.url || "");
-    if (url.includes("/auth/login") || url.includes("/auth/refresh") || url.includes("/auth/logout")) {
-      clearTokens();
-      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-        window.location.assign("/login");
-      }
-      return Promise.reject(error);
-    }
-
-    const refreshToken = getRefreshToken();
-    if (!refreshToken) {
-      clearTokens();
-      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-        window.location.assign("/login");
-      }
-      return Promise.reject(error);
-    }
-
-    try {
-      // Use a plain axios client to avoid interceptor recursion.
-      const refreshClient = axios.create({
-        baseURL: resolveBaseUrl(),
-        withCredentials: false,
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const refreshRes = await refreshClient.post("/auth/refresh", { refreshToken });
-      const data = refreshRes.data || {};
-      const extracted = extractTokensFromResponse(data);
-
-      setTokens({ accessToken: extracted?.accessToken, refreshToken: extracted?.refreshToken });
-
-      // Retry the original request with the new access token.
-      originalRequest.__isRetryAfterRefresh = true;
-      originalRequest.headers = originalRequest.headers ?? {};
-      if (extracted?.accessToken) {
-        originalRequest.headers.Authorization = formatAuthorizationHeaderValue(extracted.accessToken);
-      }
-
-      return apiClient.request(originalRequest);
-    } catch (refreshErr) {
-      clearTokens();
-      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-        window.location.assign("/login");
-      }
-      return Promise.reject(refreshErr);
-    }
+    return Promise.reject(error);
   }
 );
+

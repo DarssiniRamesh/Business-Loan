@@ -440,10 +440,12 @@ export default function ApplicantPortal() {
     } catch { setDocuments([]); }
   }
 
-  // Auth guard: redirect to login immediately if no access token exists,
-  // before firing any API call that would 401.
+  // Auth guard:
+  // - If neither access nor refresh token exists, redirect to login.
+  // - If only refresh token exists (access token missing/expired), allow the page to load:
+  //   the axios interceptor will refresh on the first 401 and retry the request.
   useEffect(() => {
-    if (!getAccessToken()) {
+    if (!getAccessToken() && !getRefreshToken()) {
       navigate("/login", { replace: true });
       return;
     }

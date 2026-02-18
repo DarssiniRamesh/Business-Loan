@@ -11,6 +11,7 @@ import {
   faLock,
   faShieldHalved,
 } from "@fortawesome/free-solid-svg-icons";
+import { getOpenApiDocsUrl } from "../api/axiosConfig";
 
 /**
  * PUBLIC_INTERFACE
@@ -484,6 +485,19 @@ function Footer() {
           <div className="mt-2">
             Disclaimer: This is an MVP experience; terms and eligibility vary by applicant and verification results.
           </div>
+
+          {process.env.REACT_APP_NODE_ENV !== "production" ? (
+            <div className="mt-3">
+              <a
+                href={getOpenApiDocsUrl()}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-blue-600 hover:text-blue-700"
+              >
+                Backend API Docs (/v3/api-docs)
+              </a>
+            </div>
+          ) : null}
         </div>
       </div>
     </footer>

@@ -27,18 +27,6 @@ export async function loginStep1({ email, password }) {
 
 /**
  * PUBLIC_INTERFACE
- * Login step 2: verify OTP and receive tokens.
- * Backend: POST /api/auth/login/{userId}/mfa/verify
- */
-export async function verifyMfa({ userId, otp }) {
-  const res = await apiClient.post(`/auth/login/${userId}/mfa/verify`, { otp });
-  const data = res.data; // { accessToken, refreshToken, tokenType }
-  setTokens({ accessToken: data?.accessToken, refreshToken: data?.refreshToken });
-  return data;
-}
-
-/**
- * PUBLIC_INTERFACE
  * Refresh tokens (rotate refresh token).
  * Backend: POST /api/auth/refresh
  */

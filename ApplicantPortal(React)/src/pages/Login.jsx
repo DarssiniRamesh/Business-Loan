@@ -294,8 +294,11 @@ function LoginForm({ onSuccess, onSwitchToSignup }) {
     try {
       const res = await loginStep1({ email, password });
 
-      if (res?.pendingMfa) {
-        setFormError("MFA is currently disabled in the frontend. Please contact support.");
+      // If tokens are returned, we consider login successful even if backend flagged MFA (defensive)
+      if (res?.accessToken || res?.refreshToken) {
+        onSuccess?.();
+      } else if (res?.pendingMfa) {
+        setFormError("Multi-factor authentication is required but not supported in this interface. Please contact support.");
       } else {
         // Tokens are stored by loginStep1 in authApi if returned.
         onSuccess?.();

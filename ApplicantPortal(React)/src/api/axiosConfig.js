@@ -33,10 +33,67 @@ function isKaviaPreviewHost() {
 }
 
 /**
+ * In Kavia preview, the backend is reached via the preview proxy on the "public" origin:
+ *   https://<hostname>/proxy/<port>/...
+ *
+ * IMPORTANT:
+ * `window.location.origin` for the frontend dev server includes `:3000` which is NOT where
+ * the proxy lives, so we must NOT use `origin` here.
+ */
+function getKaviaPreviewPublicOrigin() {
+  if (typeof window === "undefined") return "";
+  return `${window.location.protocol}//${window.location.hostname}`;
+}
+
+/**
  * Proxy URLs in the Kavia preview take the form: https://<host>/proxy/<port>/
  */
 function looksLikeKaviaProxyUrl(url) {
   return String(url || "").includes("/proxy/");
+}
+
+/**
+ * Normalize an env-provided base URL so that:
+ * - Relative values like `/proxy/3010` become absolute (especially in Kavia preview)
+ * - Preview misconfigs like `https://<host>:3000/proxy/3010` are rewritten to remove `:3000`
+ */
+function normalizeEnvBaseUrl(rawValue) {
+  const raw = stripTrailingSlashes(rawValue);
+  if (!raw) return "";
+
+  const isAbsoluteHttp = /^https?:\/\//i.test(raw);
+
+  // If env is absolute, fix the common preview mistake of pointing at the frontend dev port.
+  if (isAbsoluteHttp) {
+    if (isKaviaPreviewHost() && typeof window !== "undefined") {
+      try {
+        const u = new URL(raw);
+        // If someone accidentally set :3000 in the backend URL, drop it.
+        if (u.hostname === window.location.hostname && u.port === window.location.port) {
+          u.port = "";
+          return stripTrailingSlashes(u.toString());
+        }
+      } catch {
+        // If parsing fails, fall back to raw.
+      }
+    }
+    return raw;
+  }
+
+  // Handle path-like values (most common cause of "request goes to :3000/proxy/3010/...").
+  if (raw.startsWith("/")) {
+    if (typeof window === "undefined") return raw;
+    const origin = isKaviaPreviewHost() ? getKaviaPreviewPublicOrigin() : window.location.origin;
+    return `${origin}${raw}`;
+  }
+
+  // Convenience: allow "proxy/3010" (missing leading slash).
+  if (raw.startsWith("proxy/")) {
+    return normalizeEnvBaseUrl(`/${raw}`);
+  }
+
+  // Otherwise, return as-is (e.g. localhost:8080/api without scheme is not supported here).
+  return raw;
 }
 
 /**
@@ -45,25 +102,28 @@ function looksLikeKaviaProxyUrl(url) {
  * Supported env inputs:
  * - REACT_APP_API_BASE="https://.../proxy/3010"          (we will append /api)
  * - REACT_APP_API_BASE="https://.../proxy/3010/api"      (used as-is)
+ * - REACT_APP_API_BASE="/proxy/3010"                    (converted to absolute in preview; we append /api)
+ * - REACT_APP_API_BASE="/proxy/3010/api"                (converted to absolute in preview; used as-is)
  * - REACT_APP_API_BASE="http://localhost:8080/api"       (local dev default)
  *
- * IMPORTANT:
- * In Kavia preview, using raw host:port (e.g. https://...:3001) will not hit the backend.
+ * IMPORTANT (Kavia preview):
  * The backend is reachable via the preview proxy path (e.g. /proxy/3010/).
- * If we detect preview + a non-proxy env URL, we safely override to the proxy URL to prevent 502s.
+ * Requests MUST be sent to https://<hostname>/proxy/3010/... (no :3000).
  */
 function resolveBaseUrl() {
   // Vite exposes REACT_APP_* via vite.config define (process.env)
-  const fromEnv =
+  const rawFromEnv =
     process.env.REACT_APP_API_BASE ||
     process.env.REACT_APP_API_BASE_URL ||
     process.env.REACT_APP_BACKEND_URL;
+
+  const fromEnv = normalizeEnvBaseUrl(rawFromEnv);
 
   // Preview-safe fallback: when in Kavia and env base is missing or clearly not proxy-based.
   if (isKaviaPreviewHost()) {
     const shouldOverride = !fromEnv || !looksLikeKaviaProxyUrl(fromEnv);
     if (shouldOverride) {
-      return ensureApiSuffix(`${window.location.origin}${DEFAULT_KAVIA_PROXY_BACKEND_PATH}`);
+      return ensureApiSuffix(`${getKaviaPreviewPublicOrigin()}${DEFAULT_KAVIA_PROXY_BACKEND_PATH}`);
     }
   }
 

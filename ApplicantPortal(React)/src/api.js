@@ -17,20 +17,61 @@ function isKaviaPreviewHost() {
   return h.includes("vscode-internal") && h.includes("cloud.kavia.ai");
 }
 
+function getKaviaPreviewPublicOrigin() {
+  if (typeof window === "undefined") return "";
+  return `${window.location.protocol}//${window.location.hostname}`;
+}
+
 function looksLikeKaviaProxyUrl(url) {
   return String(url || "").includes("/proxy/");
 }
 
+function normalizeEnvBaseUrl(rawValue) {
+  const raw = stripTrailingSlashes(rawValue);
+  if (!raw) return "";
+
+  const isAbsoluteHttp = /^https?:\/\//i.test(raw);
+
+  if (isAbsoluteHttp) {
+    if (isKaviaPreviewHost() && typeof window !== "undefined") {
+      try {
+        const u = new URL(raw);
+        if (u.hostname === window.location.hostname && u.port === window.location.port) {
+          u.port = "";
+          return stripTrailingSlashes(u.toString());
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return raw;
+  }
+
+  if (raw.startsWith("/")) {
+    if (typeof window === "undefined") return raw;
+    const origin = isKaviaPreviewHost() ? getKaviaPreviewPublicOrigin() : window.location.origin;
+    return `${origin}${raw}`;
+  }
+
+  if (raw.startsWith("proxy/")) {
+    return normalizeEnvBaseUrl(`/${raw}`);
+  }
+
+  return raw;
+}
+
 function resolveBaseApiUrl() {
-  const fromEnv =
-    process.env.REACT_APP_API_BASE_URL ||
+  const rawFromEnv =
     process.env.REACT_APP_API_BASE ||
+    process.env.REACT_APP_API_BASE_URL ||
     process.env.REACT_APP_BACKEND_URL;
+
+  const fromEnv = normalizeEnvBaseUrl(rawFromEnv);
 
   if (isKaviaPreviewHost()) {
     const shouldOverride = !fromEnv || !looksLikeKaviaProxyUrl(fromEnv);
     if (shouldOverride) {
-      return ensureApiSuffix(`${window.location.origin}${DEFAULT_KAVIA_PROXY_BACKEND_PATH}`);
+      return ensureApiSuffix(`${getKaviaPreviewPublicOrigin()}${DEFAULT_KAVIA_PROXY_BACKEND_PATH}`);
     }
   }
 

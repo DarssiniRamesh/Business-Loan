@@ -32,3 +32,24 @@ export async function verifyMfa({ userId, otp }) {
   setTokens({ accessToken: data?.accessToken, refreshToken: data?.refreshToken });
   return data;
 }
+
+/**
+ * PUBLIC_INTERFACE
+ * Refresh tokens (rotate refresh token).
+ * Backend: POST /api/auth/refresh
+ */
+export async function refreshTokens({ refreshToken }) {
+  const res = await apiClient.post("/auth/refresh", { refreshToken });
+  const data = res.data; // { accessToken, refreshToken, tokenType }
+  setTokens({ accessToken: data?.accessToken, refreshToken: data?.refreshToken });
+  return data;
+}
+
+/**
+ * PUBLIC_INTERFACE
+ * Logout (revoke refresh token).
+ * Backend: POST /api/auth/logout
+ */
+export async function logout({ refreshToken }) {
+  await apiClient.post("/auth/logout", { refreshToken });
+}

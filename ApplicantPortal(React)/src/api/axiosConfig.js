@@ -1,5 +1,5 @@
 import axios from "axios";
-import { getAccessToken, clearTokens } from "./tokenStorage";
+import { getAccessToken, getRefreshToken, setTokens, clearTokens } from "./tokenStorage";
 
 const DEFAULT_LOCAL_API_BASE = "http://localhost:8080/api";
 const DEFAULT_KAVIA_PROXY_BACKEND_PATH = "/proxy/3010";
@@ -182,18 +182,70 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor: global 401 handling.
+// Response interceptor: try refresh-once then retry. If refresh fails, clear + redirect.
 apiClient.interceptors.response.use(
   (res) => res,
-  (error) => {
+  async (error) => {
     const status = error?.response?.status;
-    if (status === 401) {
+    const originalRequest = error?.config;
+
+    // Only act on 401 and only once per request.
+    if (status !== 401 || !originalRequest) {
+      return Promise.reject(error);
+    }
+
+    // Avoid infinite loops.
+    if (originalRequest.__isRetryAfterRefresh) {
       clearTokens();
-      // Avoid react-router dependency inside the service layer.
       if (typeof window !== "undefined" && window.location.pathname !== "/login") {
         window.location.assign("/login");
       }
+      return Promise.reject(error);
     }
-    return Promise.reject(error);
+
+    // Don't attempt refresh for auth endpoints themselves.
+    const url = String(originalRequest?.url || "");
+    if (url.includes("/auth/login") || url.includes("/auth/refresh") || url.includes("/auth/logout")) {
+      clearTokens();
+      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+        window.location.assign("/login");
+      }
+      return Promise.reject(error);
+    }
+
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) {
+      clearTokens();
+      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+        window.location.assign("/login");
+      }
+      return Promise.reject(error);
+    }
+
+    try {
+      // Use a plain axios client to avoid interceptor recursion.
+      const refreshClient = axios.create({
+        baseURL: resolveBaseUrl(),
+        withCredentials: false,
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const refreshRes = await refreshClient.post("/auth/refresh", { refreshToken });
+      const data = refreshRes.data || {};
+      setTokens({ accessToken: data?.accessToken, refreshToken: data?.refreshToken });
+
+      // Retry the original request with the new access token.
+      originalRequest.__isRetryAfterRefresh = true;
+      originalRequest.headers = originalRequest.headers ?? {};
+      originalRequest.headers.Authorization = `Bearer ${data?.accessToken}`;
+
+      return apiClient.request(originalRequest);
+    } catch (refreshErr) {
+      clearTokens();
+      if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+        window.location.assign("/login");
+      }
+      return Promise.reject(refreshErr);
+    }
   }
 );

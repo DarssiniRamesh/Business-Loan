@@ -25,8 +25,14 @@ function useQueryMode(defaultMode = "login") {
  */
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const initialMode = useQueryMode("login");
   const [mode, setMode] = useState(initialMode === "signup" ? "signup" : "login");
+
+  const nextPath = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("next") || "/app";
+  }, [location.search]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-blue-900">
@@ -155,7 +161,7 @@ export default function Login() {
                       transition={{ duration: 0.25 }}
                     >
                       <LoginForm
-                        onSuccess={() => navigate("/", { replace: true })}
+                        onSuccess={() => navigate(nextPath, { replace: true })}
                         onSwitchToSignup={() => setMode("signup")}
                       />
                     </motion.div>

@@ -15,6 +15,18 @@ export function getAccessToken() {
 
 /**
  * PUBLIC_INTERFACE
+ * Get stored refresh token used for rotating access tokens.
+ */
+export function getRefreshToken() {
+  try {
+    return localStorage.getItem(REFRESH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * PUBLIC_INTERFACE
  * Store access/refresh tokens (if provided).
  */
 export function setTokens({ accessToken, refreshToken }) {
@@ -37,4 +49,12 @@ export function clearTokens() {
   } catch {
     // ignore
   }
+}
+
+/**
+ * PUBLIC_INTERFACE
+ * True when we have at least one token stored.
+ */
+export function hasAnyToken() {
+  return Boolean(getAccessToken() || getRefreshToken());
 }

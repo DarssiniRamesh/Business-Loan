@@ -1,5 +1,5 @@
 import { apiClient } from "./axiosConfig";
-import { setTokens } from "./tokenStorage";
+import { clearTokens, setTokens } from "./tokenStorage";
 
 /**
  * Extract tokens from a backend auth response. We support multiple shapes because
@@ -51,7 +51,8 @@ function normalizeToken(token) {
  * Backend: POST /api/auth/register
  */
 export async function registerApplicant({ email, password }) {
-  const res = await apiClient.post("/auth/register", { email, password });
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const res = await apiClient.post("/auth/register", { email: normalizedEmail, password });
   return res.data;
 }
 
@@ -64,7 +65,13 @@ export async function registerApplicant({ email, password }) {
  * We persist either shape to ensure authenticated endpoints (e.g. draft creation) work.
  */
 export async function loginStep1({ email, password }) {
-  const res = await apiClient.post("/auth/login", { email, password });
+  // Ensure we don't keep using stale/invalid tokens if a previous session existed.
+  // This prevents authenticated calls (e.g. draft creation) from failing/redirecting
+  // due to leftover tokens when the new login attempt is invalid.
+  clearTokens();
+
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const res = await apiClient.post("/auth/login", { email: normalizedEmail, password });
   const data = res.data;
 
   const { accessToken, refreshToken } = extractTokens(data);
@@ -73,9 +80,12 @@ export async function loginStep1({ email, password }) {
       accessToken: normalizeToken(accessToken),
       refreshToken: normalizeToken(refreshToken),
     });
+  } else {
+    // Defensive: if backend ever returns a non-token login response, don't allow old tokens to linger.
+    clearTokens();
   }
 
-  return data; // e.g. { userId, pendingMfa, accessToken, refreshToken }
+  return data; // e.g. { pendingMfa, accessToken, refreshToken }
 }
 
 /**

@@ -138,6 +138,28 @@ function stripApiSuffix(apiBaseUrl) {
 }
 
 /**
+ * Ensure we never send "Bearer Bearer <token>".
+ */
+function formatAuthorizationHeaderValue(rawToken) {
+  const t = String(rawToken || "").trim();
+  if (!t) return "";
+  return /^Bearer\s+/i.test(t) ? t : `Bearer ${t}`;
+}
+
+/**
+ * Extract tokens from refresh responses that may be legacy-shaped.
+ */
+function extractTokensFromResponse(data) {
+  const d = data || {};
+  const nested = d?.tokens && typeof d.tokens === "object" ? d.tokens : {};
+  const accessToken =
+    d?.accessToken || d?.access_token || d?.token || d?.jwt || nested?.accessToken || nested?.access_token || nested?.token || null;
+  const refreshToken =
+    d?.refreshToken || d?.refresh_token || nested?.refreshToken || nested?.refresh_token || null;
+  return { accessToken, refreshToken };
+}
+
+/**
  * PUBLIC_INTERFACE
  * Return the resolved API base URL used by Axios (ends with `/api` or `/api/v1`).
  */
@@ -175,7 +197,7 @@ apiClient.interceptors.request.use(
     const token = getAccessToken();
     if (token) {
       config.headers = config.headers ?? {};
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization = formatAuthorizationHeaderValue(token);
     }
     return config;
   },
@@ -232,12 +254,16 @@ apiClient.interceptors.response.use(
 
       const refreshRes = await refreshClient.post("/auth/refresh", { refreshToken });
       const data = refreshRes.data || {};
-      setTokens({ accessToken: data?.accessToken, refreshToken: data?.refreshToken });
+      const extracted = extractTokensFromResponse(data);
+
+      setTokens({ accessToken: extracted?.accessToken, refreshToken: extracted?.refreshToken });
 
       // Retry the original request with the new access token.
       originalRequest.__isRetryAfterRefresh = true;
       originalRequest.headers = originalRequest.headers ?? {};
-      originalRequest.headers.Authorization = `Bearer ${data?.accessToken}`;
+      if (extracted?.accessToken) {
+        originalRequest.headers.Authorization = formatAuthorizationHeaderValue(extracted.accessToken);
+      }
 
       return apiClient.request(originalRequest);
     } catch (refreshErr) {

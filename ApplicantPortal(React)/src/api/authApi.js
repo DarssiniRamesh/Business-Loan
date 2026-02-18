@@ -2,6 +2,50 @@ import { apiClient } from "./axiosConfig";
 import { setTokens } from "./tokenStorage";
 
 /**
+ * Extract tokens from a backend auth response. We support multiple shapes because
+ * the backend has evolved (and some environments may still return legacy fields).
+ *
+ * Examples supported:
+ * - { accessToken, refreshToken }
+ * - { access_token, refresh_token }
+ * - { token }  (legacy access token field)
+ * - { tokens: { accessToken, refreshToken } }
+ */
+function extractTokens(authResponse) {
+  const data = authResponse || {};
+
+  const nested = data?.tokens && typeof data.tokens === "object" ? data.tokens : {};
+
+  const accessToken =
+    data?.accessToken ||
+    data?.access_token ||
+    data?.token ||
+    data?.jwt ||
+    nested?.accessToken ||
+    nested?.access_token ||
+    nested?.token ||
+    null;
+
+  const refreshToken =
+    data?.refreshToken ||
+    data?.refresh_token ||
+    nested?.refreshToken ||
+    nested?.refresh_token ||
+    null;
+
+  return { accessToken, refreshToken };
+}
+
+/**
+ * Normalize token strings before storage (avoid "Bearer Bearer ..." issues).
+ */
+function normalizeToken(token) {
+  const t = String(token || "").trim();
+  if (!t) return null;
+  return t.replace(/^Bearer\s+/i, "").trim();
+}
+
+/**
  * PUBLIC_INTERFACE
  * Register a new applicant user.
  * Backend: POST /api/auth/register
@@ -15,14 +59,23 @@ export async function registerApplicant({ email, password }) {
  * PUBLIC_INTERFACE
  * Login step 1: validate credentials; may require MFA.
  * Backend: POST /api/auth/login
+ *
+ * Note: Some backend versions return `{ token }` (legacy) instead of `{ accessToken }`.
+ * We persist either shape to ensure authenticated endpoints (e.g. draft creation) work.
  */
 export async function loginStep1({ email, password }) {
   const res = await apiClient.post("/auth/login", { email, password });
   const data = res.data;
-  if (data?.accessToken || data?.refreshToken) {
-    setTokens({ accessToken: data?.accessToken, refreshToken: data?.refreshToken });
+
+  const { accessToken, refreshToken } = extractTokens(data);
+  if (accessToken || refreshToken) {
+    setTokens({
+      accessToken: normalizeToken(accessToken),
+      refreshToken: normalizeToken(refreshToken),
+    });
   }
-  return data; // { userId, pendingMfa }
+
+  return data; // e.g. { userId, pendingMfa, accessToken, refreshToken }
 }
 
 /**
@@ -32,8 +85,14 @@ export async function loginStep1({ email, password }) {
  */
 export async function refreshTokens({ refreshToken }) {
   const res = await apiClient.post("/auth/refresh", { refreshToken });
-  const data = res.data; // { accessToken, refreshToken, tokenType }
-  setTokens({ accessToken: data?.accessToken, refreshToken: data?.refreshToken });
+  const data = res.data;
+
+  const extracted = extractTokens(data);
+  setTokens({
+    accessToken: normalizeToken(extracted.accessToken),
+    refreshToken: normalizeToken(extracted.refreshToken),
+  });
+
   return data;
 }
 

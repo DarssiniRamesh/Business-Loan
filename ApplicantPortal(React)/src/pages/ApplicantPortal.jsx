@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowRightFromBracket,
   faBolt,
   faCheckCircle,
+  faClock,
   faFileArrowUp,
   faFolderOpen,
   faGaugeHigh,
   faListCheck,
+  faPlus,
   faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 import { useNavigate } from "react-router-dom";
@@ -393,29 +395,56 @@ export default function ApplicantPortal() {
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="text-sm font-extrabold text-slate-900">Your drafts</div>
-              <button
+              <motion.button
                 type="button"
                 onClick={onCreateDraft}
                 disabled={busy}
-                className="rounded-xl bg-blue-500 px-3 py-2 text-xs font-extrabold text-white hover:bg-blue-600"
+                whileHover={busy ? undefined : { scale: 1.02 }}
+                whileTap={busy ? undefined : { scale: 0.98 }}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-500 px-3 py-2 text-xs font-extrabold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
               >
-                New Draft
-              </button>
+                <FontAwesomeIcon icon={faPlus} />
+                New draft
+              </motion.button>
             </div>
 
             <div className="mt-4 space-y-2">
               {drafts.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                  No drafts yet. Create one to begin.
+                <div className="rounded-3xl border border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-700">
+                      <FontAwesomeIcon icon={faClock} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-extrabold text-slate-900">Start a new application</div>
+                      <div className="mt-1 text-sm text-slate-600">
+                        Create a draft to begin entering business details and uploading documents.
+                      </div>
+
+                      <motion.button
+                        type="button"
+                        onClick={onCreateDraft}
+                        disabled={busy}
+                        whileHover={busy ? undefined : { scale: 1.02 }}
+                        whileTap={busy ? undefined : { scale: 0.98 }}
+                        className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-extrabold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                      >
+                        <FontAwesomeIcon icon={faPlus} />
+                        Create draft
+                      </motion.button>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 drafts.map((d) => (
-                  <button
+                  <motion.button
                     key={d.id}
                     type="button"
                     onClick={() => setSelectedDraftId(d.id)}
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.99 }}
                     className={[
-                      "w-full rounded-2xl border px-4 py-3 text-left transition",
+                      "w-full rounded-2xl border px-4 py-3 text-left shadow-sm transition",
                       selectedDraftId === d.id
                         ? "border-blue-300 bg-blue-50"
                         : "border-slate-200 bg-white hover:bg-slate-50",
@@ -423,9 +452,7 @@ export default function ApplicantPortal() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-sm font-extrabold text-slate-900">Draft</div>
-                      <div className="text-xs font-semibold text-slate-500">
-                        v{d.version ?? 0}
-                      </div>
+                      <div className="text-xs font-semibold text-slate-500">v{d.version ?? 0}</div>
                     </div>
                     <div className="mt-1 text-xs text-slate-600">
                       Status: <span className="font-semibold">{d.status}</span>
@@ -437,7 +464,7 @@ export default function ApplicantPortal() {
                         Decision: <span className="text-blue-700">{d.decision}</span>
                       </div>
                     ) : null}
-                  </button>
+                  </motion.button>
                 ))
               )}
             </div>
@@ -489,47 +516,73 @@ export default function ApplicantPortal() {
 
           {/* Right: tab content */}
           <section className="lg:col-span-2">
-            {tab === "drafts" ? (
-              <DraftsPanel
-                selectedDraft={selectedDraft}
-                sectionKey={sectionKey}
-                setSectionKey={setSectionKey}
-                sectionData={sectionData}
-                setSectionData={setSectionData}
-                sectionStatusValue={sectionStatusValue}
-                setSectionStatusValue={setSectionStatusValue}
-                onPatchSection={onPatchSection}
-                busy={busy}
-              />
-            ) : null}
+            <AnimatePresence mode="wait" initial={false}>
+              {tab === "drafts" ? (
+                <motion.div
+                  key="tab-drafts"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <DraftsPanel
+                    selectedDraft={selectedDraft}
+                    sectionKey={sectionKey}
+                    setSectionKey={setSectionKey}
+                    sectionData={sectionData}
+                    setSectionData={setSectionData}
+                    sectionStatusValue={sectionStatusValue}
+                    setSectionStatusValue={setSectionStatusValue}
+                    onPatchSection={onPatchSection}
+                    busy={busy}
+                  />
+                </motion.div>
+              ) : null}
 
-            {tab === "documents" ? (
-              <DocumentsPanel
-                selectedDraftId={selectedDraftId}
-                documents={documents}
-                uploadFile={uploadFile}
-                setUploadFile={setUploadFile}
-                uploadDocType={uploadDocType}
-                setUploadDocType={setUploadDocType}
-                onUpload={onUploadDocument}
-                onDeleteDocument={onDeleteDocument}
-                busy={busy}
-              />
-            ) : null}
+              {tab === "documents" ? (
+                <motion.div
+                  key="tab-documents"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <DocumentsPanel
+                    selectedDraftId={selectedDraftId}
+                    documents={documents}
+                    uploadFile={uploadFile}
+                    setUploadFile={setUploadFile}
+                    uploadDocType={uploadDocType}
+                    setUploadDocType={setUploadDocType}
+                    onUpload={onUploadDocument}
+                    onDeleteDocument={onDeleteDocument}
+                    busy={busy}
+                  />
+                </motion.div>
+              ) : null}
 
-            {tab === "submit" ? (
-              <SubmitPanel
-                selectedDraft={selectedDraft}
-                requiredSections={requiredSections}
-                setRequiredSections={setRequiredSections}
-                requiredDocTypes={requiredDocTypes}
-                setRequiredDocTypes={setRequiredDocTypes}
-                readiness={readiness}
-                onCheckReadiness={onCheckReadiness}
-                onSubmit={onSubmit}
-                busy={busy}
-              />
-            ) : null}
+              {tab === "submit" ? (
+                <motion.div
+                  key="tab-submit"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <SubmitPanel
+                    selectedDraft={selectedDraft}
+                    requiredSections={requiredSections}
+                    setRequiredSections={setRequiredSections}
+                    requiredDocTypes={requiredDocTypes}
+                    setRequiredDocTypes={setRequiredDocTypes}
+                    readiness={readiness}
+                    onCheckReadiness={onCheckReadiness}
+                    onSubmit={onSubmit}
+                    busy={busy}
+                  />
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </section>
         </motion.div>
       </main>

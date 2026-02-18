@@ -5,6 +5,13 @@ import react from "@vitejs/plugin-react";
  * Vite config:
  * - React plugin
  * - Maps existing REACT_APP_* variables into `process.env` for browser code compatibility.
+ *
+ * IMPORTANT:
+ * This project still contains JSX inside some `.js` files (e.g. src/App.js and legacy components).
+ * Vite/esbuild default loader for `.js` is plain `js`, which will fail to parse JSX.
+ * We explicitly configure esbuild to treat `.js` as `jsx` both:
+ *   1) during dependency optimization scanning (optimizeDeps), and
+ *   2) during normal source transforms (esbuild option).
  */
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -16,9 +23,28 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+
+    // Fix dependency-scan errors like:
+    // "The JSX syntax extension is not currently enabled" for src/App.js
+    optimizeDeps: {
+      entries: ["index.html"],
+      esbuildOptions: {
+        loader: {
+          ".js": "jsx",
+        },
+      },
+    },
+
+    // Fix dev/build transforms for application source `.js` files that contain JSX.
+    esbuild: {
+      loader: "jsx",
+      include: /src\/.*\.js$/,
+    },
+
     define: {
       "process.env": injected,
     },
+
     server: {
       port: Number(env.REACT_APP_PORT || 5173),
     },

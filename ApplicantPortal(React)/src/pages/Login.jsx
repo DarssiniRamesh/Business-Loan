@@ -10,8 +10,11 @@ import {
   faLock,
   faShieldHalved,
   faTriangleExclamation,
+  faSpinner,
+  faCircleCheck,
 } from "@fortawesome/free-solid-svg-icons";
 import { loginStep1, registerApplicant } from "../api/authApi";
+import { getAccessToken } from "../api/tokenStorage";
 
 function useQueryMode(defaultMode = "login") {
   const location = useLocation();
@@ -21,7 +24,7 @@ function useQueryMode(defaultMode = "login") {
 
 /**
  * PUBLIC_INTERFACE
- * Login page with animated two-panel Login/Signup UI (Framer Motion).
+ * Login / Signup page.
  */
 export default function Login() {
   const navigate = useNavigate();
@@ -34,171 +37,227 @@ export default function Login() {
     return params.get("next") || "/app";
   }, [location.search]);
 
+  // If already authenticated, go straight to app
+  useMemo(() => {
+    if (getAccessToken()) navigate(nextPath, { replace: true });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-blue-900">
-      <div className="mx-auto flex min-h-screen max-w-6xl items-center justify-center px-4 py-12">
-        <div className="w-full max-w-5xl">
-          <div className="grid overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl backdrop-blur lg:grid-cols-2">
-            {/* Left panel (brand / trust) */}
-            <div className="relative hidden lg:block">
-              <div className="absolute inset-0 bg-gradient-to-br from-slate-900/30 to-blue-500/20" />
-              <div className="relative p-10">
-                <Link to="/" className="inline-flex items-center gap-2 text-white">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10">
-                    <FontAwesomeIcon icon={faBuildingColumns} />
-                  </span>
-                  <div className="leading-tight">
-                    <div className="text-sm font-extrabold tracking-tight">
-                      BusinessLoan
-                    </div>
-                    <div className="text-xs font-semibold text-white/70">
-                      Applicant Portal
-                    </div>
-                  </div>
-                </Link>
+    <div style={{
+      minHeight: "100vh",
+      background: "linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #1e3a5f 100%)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: "'Inter', system-ui, sans-serif",
+      padding: "24px",
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        * { box-sizing: border-box; }
+        .auth-card {
+          width: 100%; max-width: 960px;
+          display: grid; grid-template-columns: 1fr 1fr;
+          border-radius: 20px; overflow: hidden;
+          box-shadow: 0 32px 80px rgba(0,0,0,0.5);
+          border: 1px solid rgba(255,255,255,0.08);
+        }
+        @media (max-width: 680px) {
+          .auth-card { grid-template-columns: 1fr; }
+          .auth-left { display: none !important; }
+        }
+        .auth-left {
+          background: linear-gradient(160deg, #1e3a5f 0%, #0f172a 100%);
+          padding: 48px 40px;
+          display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .auth-right {
+          background: #ffffff;
+          padding: 0;
+          display: flex; flex-direction: column;
+        }
+        .auth-right-head {
+          padding: 28px 36px 24px;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .auth-right-body { padding: 32px 36px 36px; flex: 1; }
+        .mode-toggle {
+          display: inline-flex; background: #f1f5f9; border-radius: 10px; padding: 3px; gap: 2px;
+        }
+        .mode-btn {
+          padding: 7px 18px; border: none; cursor: pointer; border-radius: 8px;
+          font-family: inherit; font-size: 13px; font-weight: 600; transition: all .15s;
+          background: transparent; color: #64748b;
+        }
+        .mode-btn.active { background: #fff; color: #0f172a; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
 
-                <motion.h1
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
-                  className="mt-10 text-3xl font-extrabold tracking-tight text-white"
-                >
-                  Secure funding workflows,
-                  <br />
-                  built for confidence.
-                </motion.h1>
+        .inp-wrap {
+          display: flex; flex-direction: column; gap: 5px; margin-bottom: 16px;
+        }
+        .inp-lbl {
+          font-size: 11.5px; font-weight: 700; letter-spacing: .06em;
+          text-transform: uppercase; color: #334155;
+        }
+        .inp-row {
+          display: flex; align-items: center; gap: 10px;
+          padding: 11px 14px; border-radius: 10px;
+          border: 1.5px solid #e2e8f0; background: #fff;
+          transition: border .15s, box-shadow .15s;
+        }
+        .inp-row:focus-within {
+          border-color: #2563eb;
+          box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+        }
+        .inp-row.err { border-color: #fca5a5; }
+        .inp-row input {
+          flex: 1; border: none; outline: none; background: transparent;
+          font-family: inherit; font-size: 13.5px; color: #0f172a;
+        }
+        .inp-row input::placeholder { color: #cbd5e1; }
+        .inp-icon { color: #94a3b8; font-size: 14px; flex-shrink: 0; }
+        .inp-icon.err { color: #f87171; }
+        .inp-err { font-size: 11.5px; font-weight: 600; color: #dc2626; margin-top: 3px; display: flex; align-items: center; gap: 5px; }
 
-                <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/75">
-                  Sign in to continue your application, upload documents, and track
-                  status. New here? Create an account in under a minute.
-                </p>
+        .submit-btn {
+          width: 100%; height: 44px; border: none; border-radius: 10px;
+          background: #2563eb; color: #fff;
+          font-family: inherit; font-size: 14px; font-weight: 700;
+          cursor: pointer; transition: all .15s;
+          box-shadow: 0 4px 16px rgba(37,99,235,.3);
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+          margin-top: 8px;
+        }
+        .submit-btn:hover:not(:disabled) { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(37,99,235,.35); }
+        .submit-btn:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; box-shadow: none; transform: none; }
 
-                <div className="mt-8 space-y-4">
-                  {[
-                    {
-                      icon: faShieldHalved,
-                      title: "Bank-grade security",
-                      desc: "Encrypted connections and token-based access.",
-                    },
-                    {
-                      icon: faLock,
-                      title: "Privacy-first",
-                      desc: "Designed for financial compliance and trust.",
-                    },
-                  ].map((b) => (
-                    <div key={b.title} className="rounded-2xl bg-white/5 p-4">
-                      <div className="flex items-center gap-3 text-white">
-                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-200">
-                          <FontAwesomeIcon icon={b.icon} />
-                        </span>
-                        <div>
-                          <div className="text-sm font-bold">{b.title}</div>
-                          <div className="text-xs text-white/70">{b.desc}</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+        .form-err {
+          padding: 11px 14px; border-radius: 9px;
+          background: #fff1f2; border: 1.5px solid #fecdd3;
+          color: #b91c1c; font-size: 13px; font-weight: 500;
+          margin-bottom: 14px; display: flex; align-items: flex-start; gap: 8px;
+        }
+        .form-ok {
+          padding: 11px 14px; border-radius: 9px;
+          background: #f0fdf4; border: 1.5px solid #bbf7d0;
+          color: #15803d; font-size: 13px; font-weight: 500;
+          margin-bottom: 14px; display: flex; align-items: flex-start; gap: 8px;
+        }
+        .switch-link { font-weight: 700; color: #2563eb; background: none; border: none; cursor: pointer; font-family: inherit; font-size: 13.5px; }
+        .switch-link:hover { color: #1d4ed8; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin .7s linear infinite; display: inline-block; }
+      `}</style>
 
-                <div className="mt-10 text-xs text-white/60">
-                  Need help? Contact support in the footer once inside.
-                </div>
+      <div className="auth-card">
+        {/* Left panel */}
+        <div className="auth-left">
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 40 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 10,
+                background: "linear-gradient(135deg,#2563eb,#1d4ed8)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                color: "#fff", fontSize: 16,
+                boxShadow: "0 4px 16px rgba(37,99,235,.4)",
+              }}>
+                <FontAwesomeIcon icon={faBuildingColumns} />
+              </div>
+              <div>
+                <div style={{ color: "#fff", fontSize: 16, fontWeight: 800, letterSpacing: "-.02em" }}>LoanPortal</div>
+                <div style={{ color: "rgba(255,255,255,.55)", fontSize: 11.5, fontWeight: 500 }}>Business Finance</div>
               </div>
             </div>
 
-            {/* Right panel (forms) */}
-            <div className="bg-white">
-              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
-                <div>
-                  <div className="text-lg font-extrabold text-slate-900">
-                    {mode === "login" ? "Sign in" : "Create your account"}
-                  </div>
-                  <div className="mt-1 text-sm text-slate-600">
-                    {mode === "login"
-                      ? "Welcome back. Please enter your details."
-                      : "Start your application with a secure account."}
-                  </div>
-                </div>
+            <h1 style={{ color: "#fff", fontSize: 26, fontWeight: 800, letterSpacing: "-.025em", lineHeight: 1.25, marginBottom: 14 }}>
+              Secure funding workflows,<br />built for confidence.
+            </h1>
+            <p style={{ color: "rgba(255,255,255,.6)", fontSize: 13.5, lineHeight: 1.7, marginBottom: 32 }}>
+              Sign in to continue your application, upload documents, and track your status in real time.
+            </p>
 
-                <div className="flex items-center gap-2 rounded-2xl bg-slate-100 p-1">
-                  <button
-                    type="button"
-                    onClick={() => setMode("login")}
-                    className={[
-                      "rounded-xl px-3 py-2 text-xs font-bold",
-                      mode === "login"
-                        ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-600 hover:text-slate-900",
-                    ].join(" ")}
-                    aria-pressed={mode === "login"}
-                  >
-                    Login
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMode("signup")}
-                    className={[
-                      "rounded-xl px-3 py-2 text-xs font-bold",
-                      mode === "signup"
-                        ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-600 hover:text-slate-900",
-                    ].join(" ")}
-                    aria-pressed={mode === "signup"}
-                  >
-                    Sign up
-                  </button>
+            {[
+              { icon: faShieldHalved, title: "Bank-grade security", desc: "JWT-authenticated, encrypted connections." },
+              { icon: faLock, title: "Privacy-first design", desc: "Built for financial compliance and trust." },
+            ].map((b) => (
+              <div key={b.title} style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "14px 16px", borderRadius: 12,
+                background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.08)",
+                marginBottom: 10,
+              }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 9, flexShrink: 0,
+                  background: "rgba(37,99,235,.25)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: "#93c5fd", fontSize: 14,
+                }}>
+                  <FontAwesomeIcon icon={b.icon} />
+                </div>
+                <div>
+                  <div style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{b.title}</div>
+                  <div style={{ color: "rgba(255,255,255,.5)", fontSize: 12 }}>{b.desc}</div>
                 </div>
               </div>
+            ))}
+          </div>
 
-              <div className="px-6 py-6 sm:px-10 sm:py-10">
-                <AnimatePresence mode="wait" initial={false}>
-                  {mode === "login" ? (
-                    <motion.div
-                      key="login"
-                      initial={{ opacity: 0, x: 16 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -16 }}
-                      transition={{ duration: 0.25 }}
-                    >
-                      <LoginForm
-                        onSuccess={() => navigate(nextPath, { replace: true })}
-                        onSwitchToSignup={() => setMode("signup")}
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="signup"
-                      initial={{ opacity: 0, x: 16 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -16 }}
-                      transition={{ duration: 0.25 }}
-                    >
-                      <SignupForm
-                        onSuccess={() => {
-                          // After signup, bring them back to login for sign-in.
-                          setMode("login");
-                        }}
-                        onSwitchToLogin={() => setMode("login")}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+          <div style={{ color: "rgba(255,255,255,.3)", fontSize: 11.5, marginTop: 32 }}>
+            Need help? Contact support once inside the portal.
+          </div>
+        </div>
 
-                <div className="mt-8 text-center text-xs text-slate-500">
-                  By continuing, you agree to applicable Terms and Privacy disclosures.
+        {/* Right panel */}
+        <div className="auth-right">
+          <div className="auth-right-head">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", letterSpacing: "-.02em" }}>
+                  {mode === "login" ? "Welcome back" : "Create account"}
                 </div>
-
-                <div className="mt-4 text-center">
-                  <Link to="/" className="text-sm font-semibold text-blue-600 hover:text-blue-700">
-                    Back to Landing
-                  </Link>
+                <div style={{ fontSize: 13, color: "#64748b", marginTop: 3 }}>
+                  {mode === "login" ? "Sign in to your account to continue." : "Start your application in under a minute."}
                 </div>
+              </div>
+              <div className="mode-toggle">
+                <button className={`mode-btn ${mode === "login" ? "active" : ""}`} onClick={() => setMode("login")}>Login</button>
+                <button className={`mode-btn ${mode === "signup" ? "active" : ""}`} onClick={() => setMode("signup")}>Sign up</button>
               </div>
             </div>
           </div>
 
-          <div className="mt-6 text-center text-xs text-white/60">
-            Deep Navy (#0f172a) · Trust Blue (#3b82f6) · Clean White (#ffffff)
+          <div className="auth-right-body">
+            <AnimatePresence mode="wait" initial={false}>
+              {mode === "login" ? (
+                <motion.div
+                  key="login"
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -16 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <LoginForm
+                    onSuccess={() => navigate(nextPath, { replace: true })}
+                    onSwitchToSignup={() => setMode("signup")}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="signup"
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -16 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <SignupForm
+                    onSuccess={() => setMode("login")}
+                    onSwitchToLogin={() => setMode("login")}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div style={{ marginTop: 24, textAlign: "center", fontSize: 12, color: "#94a3b8" }}>
+              By continuing you agree to our Terms of Service and Privacy Policy.
+            </div>
           </div>
         </div>
       </div>
@@ -206,245 +265,114 @@ export default function Login() {
   );
 }
 
-function validateEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function Input({ label, icon, type = "text", value, onChange, error, right, autoComplete }) {
+/* ── Shared input component ── */
+function Field({ label, icon, type = "text", value, onChange, error, right, autoComplete, placeholder }) {
   return (
-    <label className="block">
-      <div className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-        {label}
-      </div>
-      <div
-        className={[
-          "flex items-center gap-2 rounded-2xl border bg-white px-4 py-3 shadow-sm transition",
-          error ? "border-red-300" : "border-slate-200",
-          "focus-within:ring-4 focus-within:ring-blue-500/15 focus-within:border-blue-500",
-        ].join(" ")}
-      >
-        <span className={error ? "text-red-500" : "text-slate-400"} >
-          <FontAwesomeIcon icon={icon} />
-        </span>
+    <div className="inp-wrap">
+      <div className="inp-lbl">{label}</div>
+      <div className={`inp-row ${error ? "err" : ""}`}>
+        <span className={`inp-icon ${error ? "err" : ""}`}><FontAwesomeIcon icon={icon} /></span>
         <input
-          className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
           type={type}
           value={value}
           onChange={onChange}
           autoComplete={autoComplete}
-          placeholder={label}
+          placeholder={placeholder || label}
         />
         {right}
       </div>
-      {error ? (
-        <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-red-600">
+      {error && (
+        <div className="inp-err">
           <FontAwesomeIcon icon={faTriangleExclamation} />
           {error}
         </div>
-      ) : null}
-    </label>
-  );
-}
-
-function PrimaryButton({ children, disabled, onClick, type = "button" }) {
-  return (
-    <motion.button
-      type={type}
-      disabled={disabled}
-      onClick={onClick}
-      whileHover={disabled ? undefined : { scale: 1.02 }}
-      whileTap={disabled ? undefined : { scale: 0.98 }}
-      className={[
-        "mt-2 inline-flex w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-extrabold shadow-sm transition",
-        disabled
-          ? "cursor-not-allowed bg-slate-200 text-slate-500"
-          : "bg-blue-500 text-white hover:bg-blue-600",
-      ].join(" ")}
-    >
-      {children}
-    </motion.button>
-  );
-}
-
-function LoginForm({ onSuccess, onSwitchToSignup }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  const [showPw, setShowPw] = useState(false);
-  const [touched, setTouched] = useState({ email: false, password: false });
-
-  const [busy, setBusy] = useState(false);
-  const [formError, setFormError] = useState("");
-
-  const emailError =
-    touched.email && !validateEmail(email) ? "Enter a valid email address." : "";
-  const pwError =
-    touched.password && password.length < 8 ? "Password must be at least 8 characters." : "";
-
-  const canSubmit = validateEmail(email) && password.length >= 8;
-
-  const submitStep1 = async (e) => {
-    e.preventDefault();
-    setFormError("");
-    setTouched({ email: true, password: true });
-
-    if (!canSubmit) return;
-
-    setBusy(true);
-    try {
-      const res = await loginStep1({ email, password });
-
-      // If tokens are returned, we consider login successful even if backend flagged MFA (defensive)
-      if (res?.accessToken || res?.refreshToken) {
-        onSuccess?.();
-      } else if (res?.pendingMfa) {
-        setFormError("Multi-factor authentication is required but not supported in this interface. Please contact support.");
-      } else {
-        // Tokens are stored by loginStep1 in authApi if returned.
-        onSuccess?.();
-      }
-    } catch (err) {
-      setFormError(err?.response?.data?.message || err?.message || "Login failed.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div>
-        <form onSubmit={submitStep1} className="space-y-5">
-          <Input
-            label="Email"
-            icon={faEnvelope}
-            type="email"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setTouched((t) => ({ ...t, email: true }));
-            }}
-            error={emailError}
-            autoComplete="email"
-          />
-
-          <Input
-            label="Password"
-            icon={faLock}
-            type={showPw ? "text" : "password"}
-            value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setTouched((t) => ({ ...t, password: true }));
-            }}
-            error={pwError}
-            autoComplete="current-password"
-            right={
-              <button
-                type="button"
-                onClick={() => setShowPw((s) => !s)}
-                className="rounded-xl px-2 py-1 text-slate-500 hover:text-slate-900"
-                aria-label={showPw ? "Hide password" : "Show password"}
-              >
-                <FontAwesomeIcon icon={showPw ? faEyeSlash : faEye} />
-              </button>
-            }
-          />
-
-          {formError ? (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-              {formError}
-            </div>
-          ) : null}
-
-          <PrimaryButton type="submit" disabled={busy}>
-            {busy ? "Signing in..." : "Sign in"}
-          </PrimaryButton>
-
-          <div className="text-center text-sm text-slate-600">
-            New here?{" "}
-            <button
-              type="button"
-              onClick={onSwitchToSignup}
-              className="font-extrabold text-blue-600 hover:text-blue-700"
-            >
-              Create an account
-            </button>
-          </div>
-        </form>
+      )}
     </div>
   );
 }
 
-function SignupForm({ onSuccess, onSwitchToLogin }) {
-  const [email, setEmail] = useState("");
+/* ── Login form ── */
+function LoginForm({ onSuccess, onSwitchToSignup }) {
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [showPw, setShowPw] = useState(false);
-
-  const [touched, setTouched] = useState({ email: false, password: false, confirm: false });
-  const [busy, setBusy] = useState(false);
+  const [showPw, setShowPw]     = useState(false);
+  const [touched, setTouched]   = useState({ email: false, password: false });
+  const [busy, setBusy]         = useState(false);
   const [formError, setFormError] = useState("");
-  const [okMsg, setOkMsg] = useState("");
 
-  const emailError =
-    touched.email && !validateEmail(email) ? "Enter a valid email address." : "";
-  const pwError =
-    touched.password && password.length < 8 ? "Password must be at least 8 characters." : "";
-  const confirmError =
-    touched.confirm && confirm !== password ? "Passwords do not match." : "";
+  const emailErr = touched.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    ? "Enter a valid email address." : "";
+  const pwErr = touched.password && password.length < 8
+    ? "Password must be at least 8 characters." : "";
+  const canSubmit = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && password.length >= 8;
 
-  const canSubmit = validateEmail(email) && password.length >= 8 && confirm === password;
-
-  const submit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setOkMsg("");
     setFormError("");
-    setTouched({ email: true, password: true, confirm: true });
-
+    setTouched({ email: true, password: true });
     if (!canSubmit) return;
 
     setBusy(true);
     try {
-      await registerApplicant({ email, password });
-      setOkMsg("Account created. Please sign in.");
+      // loginStep1 in authApi.js already calls setTokens() internally.
+      await loginStep1({ email, password });
+
+      // Critical: verify token was actually stored before navigating.
+      // This catches cases where backend returns an unexpected shape
+      // and extractTokens() failed to parse it.
+      const stored = getAccessToken();
+      if (!stored) {
+        setFormError("Login succeeded but no auth token was received. Please contact support.");
+        return;
+      }
+
       onSuccess?.();
     } catch (err) {
-      setFormError(err?.response?.data?.message || err?.message || "Signup failed.");
+      const status = err?.response?.status;
+      const msg = status === 401 ? "Invalid email or password."
+        : status === 403 ? "Account is not authorized."
+        : status === 429 ? "Too many attempts — please wait a moment and try again."
+        : err?.response?.data?.message || err?.message || "Login failed. Please try again.";
+      setFormError(msg);
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <form onSubmit={submit} className="space-y-5">
-      <Input
-        label="Email"
+    <form onSubmit={handleSubmit}>
+      {formError && (
+        <div className="form-err">
+          <FontAwesomeIcon icon={faTriangleExclamation} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>{formError}</span>
+        </div>
+      )}
+
+      <Field
+        label="Email address"
         icon={faEnvelope}
         type="email"
         value={email}
-        onChange={(e) => {
-          setEmail(e.target.value);
-          setTouched((t) => ({ ...t, email: true }));
-        }}
-        error={emailError}
+        onChange={(e) => { setEmail(e.target.value); setTouched((t) => ({ ...t, email: true })); }}
+        error={emailErr}
         autoComplete="email"
+        placeholder="you@company.com"
       />
 
-      <Input
+      <Field
         label="Password"
         icon={faLock}
         type={showPw ? "text" : "password"}
         value={password}
-        onChange={(e) => {
-          setPassword(e.target.value);
-          setTouched((t) => ({ ...t, password: true }));
-        }}
-        error={pwError}
-        autoComplete="new-password"
+        onChange={(e) => { setPassword(e.target.value); setTouched((t) => ({ ...t, password: true })); }}
+        error={pwErr}
+        autoComplete="current-password"
+        placeholder="••••••••"
         right={
           <button
             type="button"
             onClick={() => setShowPw((s) => !s)}
-            className="rounded-xl px-2 py-1 text-slate-500 hover:text-slate-900"
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 14, padding: "0 2px" }}
             aria-label={showPw ? "Hide password" : "Show password"}
           >
             <FontAwesomeIcon icon={showPw ? faEyeSlash : faEye} />
@@ -452,44 +380,122 @@ function SignupForm({ onSuccess, onSwitchToLogin }) {
         }
       />
 
-      <Input
+      <button type="submit" className="submit-btn" disabled={busy}>
+        {busy ? <><FontAwesomeIcon icon={faSpinner} className="spin" /> Signing in…</> : "Sign in"}
+      </button>
+
+      <div style={{ textAlign: "center", fontSize: 13.5, color: "#64748b", marginTop: 20 }}>
+        New here?{" "}
+        <button type="button" className="switch-link" onClick={onSwitchToSignup}>
+          Create an account
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/* ── Signup form ── */
+function SignupForm({ onSuccess, onSwitchToLogin }) {
+  const [email, setEmail]       = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm]   = useState("");
+  const [showPw, setShowPw]     = useState(false);
+  const [touched, setTouched]   = useState({ email: false, password: false, confirm: false });
+  const [busy, setBusy]         = useState(false);
+  const [formError, setFormError] = useState("");
+  const [okMsg, setOkMsg]         = useState("");
+
+  const emailErr = touched.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? "Enter a valid email." : "";
+  const pwErr    = touched.password && password.length < 8 ? "At least 8 characters required." : "";
+  const confErr  = touched.confirm && confirm !== password ? "Passwords do not match." : "";
+  const canSubmit = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && password.length >= 8 && confirm === password;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setFormError(""); setOkMsg("");
+    setTouched({ email: true, password: true, confirm: true });
+    if (!canSubmit) return;
+
+    setBusy(true);
+    try {
+      await registerApplicant({ email, password });
+      setOkMsg("Account created! Please sign in.");
+      onSuccess?.();
+    } catch (err) {
+      const status = err?.response?.status;
+      const msg = status === 409 ? "An account with this email already exists."
+        : err?.response?.data?.message || err?.message || "Signup failed. Please try again.";
+      setFormError(msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {formError && (
+        <div className="form-err">
+          <FontAwesomeIcon icon={faTriangleExclamation} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>{formError}</span>
+        </div>
+      )}
+      {okMsg && (
+        <div className="form-ok">
+          <FontAwesomeIcon icon={faCircleCheck} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>{okMsg}</span>
+        </div>
+      )}
+
+      <Field
+        label="Email address"
+        icon={faEnvelope}
+        type="email"
+        value={email}
+        onChange={(e) => { setEmail(e.target.value); setTouched((t) => ({ ...t, email: true })); }}
+        error={emailErr}
+        autoComplete="email"
+        placeholder="you@company.com"
+      />
+
+      <Field
+        label="Password"
+        icon={faLock}
+        type={showPw ? "text" : "password"}
+        value={password}
+        onChange={(e) => { setPassword(e.target.value); setTouched((t) => ({ ...t, password: true })); }}
+        error={pwErr}
+        autoComplete="new-password"
+        placeholder="Min. 8 characters"
+        right={
+          <button
+            type="button"
+            onClick={() => setShowPw((s) => !s)}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 14, padding: "0 2px" }}
+            aria-label={showPw ? "Hide" : "Show"}
+          >
+            <FontAwesomeIcon icon={showPw ? faEyeSlash : faEye} />
+          </button>
+        }
+      />
+
+      <Field
         label="Confirm password"
         icon={faLock}
         type={showPw ? "text" : "password"}
         value={confirm}
-        onChange={(e) => {
-          setConfirm(e.target.value);
-          setTouched((t) => ({ ...t, confirm: true }));
-        }}
-        error={confirmError}
+        onChange={(e) => { setConfirm(e.target.value); setTouched((t) => ({ ...t, confirm: true })); }}
+        error={confErr}
         autoComplete="new-password"
+        placeholder="Repeat password"
       />
 
-      {formError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-          {formError}
-        </div>
-      ) : null}
+      <button type="submit" className="submit-btn" disabled={busy}>
+        {busy ? <><FontAwesomeIcon icon={faSpinner} className="spin" /> Creating account…</> : "Create account"}
+      </button>
 
-      {okMsg ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-          {okMsg}
-        </div>
-      ) : null}
-
-      <PrimaryButton type="submit" disabled={busy}>
-        {busy ? "Creating account..." : "Create account"}
-      </PrimaryButton>
-
-      <div className="text-center text-sm text-slate-600">
+      <div style={{ textAlign: "center", fontSize: 13.5, color: "#64748b", marginTop: 20 }}>
         Already have an account?{" "}
-        <button
-          type="button"
-          onClick={onSwitchToLogin}
-          className="font-extrabold text-blue-600 hover:text-blue-700"
-        >
-          Sign in
-        </button>
+        <button type="button" className="switch-link" onClick={onSwitchToLogin}>Sign in</button>
       </div>
     </form>
   );

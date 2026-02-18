@@ -1,20 +1,33 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faArrowRightFromBracket,
   faBolt,
+  faBuilding,
+  faBriefcase,
   faCheckCircle,
+  faCircleCheck,
+  faCircleXmark,
   faClock,
+  faChevronRight,
+  faDownload,
+  faFile,
   faFileArrowUp,
+  faFileContract,
   faFolderOpen,
   faGaugeHigh,
   faListCheck,
+  faPaperPlane,
   faPlus,
+  faRotateRight,
+  faShieldHalved,
+  faSpinner,
+  faTrash,
   faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 import { useNavigate } from "react-router-dom";
-import { getRefreshToken, clearTokens } from "../api/tokenStorage";
+import { getAccessToken, getRefreshToken, clearTokens } from "../api/tokenStorage";
 import { logout } from "../api/authApi";
 import {
   createDraft,
@@ -25,915 +38,1204 @@ import {
   decideDraft,
   deleteDraft,
 } from "../api/loanDraftApi";
-import { uploadDocument, listDocuments, getDocumentDownloadUrl, deleteDocument } from "../api/documentsApi";
+import {
+  uploadDocument,
+  listDocuments,
+  getDocumentDownloadUrl,
+  deleteDocument,
+} from "../api/documentsApi";
 
-const DEFAULT_REQUIRED_SECTIONS = ["businessInfo", "ownerInfo", "loanRequest"];
-const DEFAULT_REQUIRED_DOC_TYPES = ["BANK_STATEMENT", "TAX_RETURN"];
+/* ─── Constants ─────────────────────────────────────────────── */
+const DEFAULT_REQ_SECTIONS = ["businessInfo", "ownerInfo", "loanRequest"];
+const DEFAULT_REQ_DOCS     = ["BANK_STATEMENT", "TAX_RETURN"];
 
-function prettyJson(value) {
-  try {
-    const obj = typeof value === "string" ? JSON.parse(value) : value;
-    return JSON.stringify(obj, null, 2);
-  } catch {
-    return typeof value === "string" ? value : JSON.stringify(value, null, 2);
-  }
+/* ─── Helpers ───────────────────────────────────────────────── */
+function prettyJson(v) {
+  try { return JSON.stringify(typeof v === "string" ? JSON.parse(v) : v, null, 2); }
+  catch { return typeof v === "string" ? v : JSON.stringify(v, null, 2); }
+}
+function safeJsonStr(v) {
+  if (typeof v === "string") { JSON.parse(v); return v; }
+  return JSON.stringify(v);
+}
+function shortId(id) { return id ? id.slice(-6).toUpperCase() : "------"; }
+function statusTheme(s) {
+  const u = (s || "").toUpperCase();
+  if (u === "SUBMITTED")                    return { bg:"#dbeafe", color:"#1d4ed8", dot:"#3b82f6" };
+  if (u === "APPROVED")                     return { bg:"#dcfce7", color:"#15803d", dot:"#22c55e" };
+  if (u === "DECLINED" || u === "REJECTED") return { bg:"#fee2e2", color:"#b91c1c", dot:"#ef4444" };
+  if (u === "IN_PROGRESS")                  return { bg:"#fef3c7", color:"#b45309", dot:"#f59e0b" };
+  return                                           { bg:"#f1f5f9", color:"#475569", dot:"#94a3b8" };
 }
 
-function safeJsonString(value) {
-  if (typeof value === "string") {
-    JSON.parse(value); // validate
-    return value;
-  }
-  return JSON.stringify(value);
+/* ─── Global CSS ─────────────────────────────────────────────── */
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --white:   #ffffff;
+  --bg:      #eef2f7;
+  --bg2:     #e4eaf2;
+  --border:  #d0d9e6;
+  --blue:    #2563eb;
+  --blue2:   #1d4ed8;
+  --blue3:   #dbeafe;
+  --blue4:   #eff6ff;
+  --navy:    #0f172a;
+  --slate:   #334155;
+  --muted:   #64748b;
+  --dim:     #94a3b8;
+  --green:   #16a34a;
+  --red:     #dc2626;
+  --amber:   #d97706;
+  --sh1: 0 1px 4px rgba(15,23,42,.07), 0 1px 2px rgba(15,23,42,.04);
+  --sh2: 0 4px 20px rgba(15,23,42,.09);
+  --shb: 0 6px 24px rgba(37,99,235,.22);
+  --font: 'Inter', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --r: 14px;
+  --r2: 10px;
 }
 
-/**
- * PUBLIC_INTERFACE
- * Applicant Portal page (post-auth): manage drafts, upload documents, submit, and view decisioning.
- */
+body { background:var(--bg); }
+
+.ap {
+  min-height:100vh;
+  background:var(--bg);
+  font-family:var(--font);
+  color:var(--navy);
+  font-size:14px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── Header ── */
+.ap-hdr {
+  position:sticky; top:0; z-index:200;
+  background:rgba(255,255,255,.96);
+  backdrop-filter:blur(24px);
+  border-bottom:1.5px solid var(--border);
+}
+.ap-hdr-in { max-width:1180px; margin:0 auto; padding:0 28px; }
+.ap-hdr-row {
+  display:flex; align-items:center; justify-content:space-between;
+  height:64px;
+}
+
+.ap-brand { display:flex; align-items:center; gap:12px; }
+.ap-brand-mark {
+  width:40px; height:40px; border-radius:11px;
+  background:linear-gradient(135deg,#2563eb,#1d4ed8);
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-size:16px; box-shadow:var(--shb); flex-shrink:0;
+}
+.ap-brand-name {
+  font-size:17px; font-weight:800; color:var(--navy); letter-spacing:-.025em; line-height:1.2;
+}
+.ap-brand-sub {
+  font-size:11.5px; font-weight:500; color:var(--muted); letter-spacing:.03em;
+}
+
+.ap-nav {
+  display:flex; gap:0;
+  border-top:1.5px solid var(--border);
+  overflow-x:auto;
+}
+.ap-nav::-webkit-scrollbar{display:none}
+.ap-tab {
+  display:flex; align-items:center; gap:8px;
+  padding:0 20px; height:46px;
+  border:none; background:none;
+  font-family:var(--font); font-size:13.5px; font-weight:500;
+  color:var(--muted); cursor:pointer; white-space:nowrap;
+  position:relative; transition:color .15s;
+}
+.ap-tab .ti {
+  width:28px; height:28px; border-radius:7px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; background:var(--bg2); flex-shrink:0;
+  transition:all .15s;
+}
+.ap-tab:hover { color:var(--blue); }
+.ap-tab:hover .ti { background:var(--blue3); color:var(--blue); }
+.ap-tab.on { color:var(--blue); font-weight:700; }
+.ap-tab.on .ti { background:var(--blue3); color:var(--blue); }
+.ap-tab.on::after {
+  content:''; position:absolute;
+  bottom:0; left:0; right:0;
+  height:2.5px; background:var(--blue);
+  border-radius:2px 2px 0 0;
+}
+
+/* ── Layout ── */
+.ap-body {
+  max-width:1180px; margin:0 auto;
+  padding:24px 28px;
+  display:flex; gap:20px; align-items:flex-start;
+}
+.ap-aside { width:268px; flex-shrink:0; display:flex; flex-direction:column; gap:14px; }
+.ap-main  { flex:1; min-width:0; display:flex; flex-direction:column; gap:16px; }
+
+@media(max-width:820px){
+  .ap-body{flex-direction:column}
+  .ap-aside{width:100%}
+}
+
+/* ── Card ── */
+.card {
+  background:var(--white);
+  border:1.5px solid var(--border);
+  border-radius:var(--r);
+  box-shadow:var(--sh1);
+  overflow:hidden;
+}
+.card-hd {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px 20px 0;
+}
+.card-title {
+  display:flex; align-items:center; gap:10px;
+  font-size:14.5px; font-weight:700; color:var(--navy); letter-spacing:-.015em;
+}
+.card-ico {
+  width:32px; height:32px; border-radius:9px;
+  background:var(--blue3); color:var(--blue);
+  display:flex; align-items:center; justify-content:center; font-size:13px;
+  flex-shrink:0;
+}
+.card-bd { padding:16px 20px 20px; }
+
+/* ── Buttons ── */
+.btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  padding:0 18px; height:38px; border:none; border-radius:9px;
+  font-family:var(--font); font-size:13.5px; font-weight:600;
+  cursor:pointer; transition:all .15s; white-space:nowrap; flex-shrink:0;
+}
+.btn:disabled{opacity:.38;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+
+.btn-primary{background:var(--blue);color:#fff;box-shadow:var(--shb)}
+.btn-primary:hover:not(:disabled){background:var(--blue2);transform:translateY(-1px);box-shadow:0 8px 24px rgba(37,99,235,.3)}
+
+.btn-dark{background:var(--navy);color:#fff;box-shadow:var(--sh1)}
+.btn-dark:hover:not(:disabled){background:#1e293b;transform:translateY(-1px)}
+
+.btn-ghost{background:var(--white);border:1.5px solid var(--border);color:var(--slate);box-shadow:var(--sh1)}
+.btn-ghost:hover:not(:disabled){border-color:var(--blue);color:var(--blue);background:var(--blue4)}
+
+.btn-danger{background:#fff1f2;border:1.5px solid #fecdd3;color:var(--red)}
+.btn-danger:hover:not(:disabled){background:#fee2e2;border-color:#fca5a5}
+
+.btn-success{background:#f0fdf4;border:1.5px solid #bbf7d0;color:var(--green)}
+.btn-success:hover:not(:disabled){background:#dcfce7}
+
+.btn-sm{height:33px;padding:0 13px;font-size:12.5px;border-radius:8px}
+.btn-xs{height:28px;padding:0 10px;font-size:12px;border-radius:7px}
+
+/* ── Badge ── */
+.badge {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:3px 9px; border-radius:20px;
+  font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+}
+.bdot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+
+/* ── Draft items ── */
+.draft-item {
+  display:block; width:100%; text-align:left;
+  padding:14px 15px; border-radius:11px;
+  border:1.5px solid var(--border); background:var(--white);
+  cursor:pointer; transition:all .15s; font-family:var(--font);
+  box-shadow:var(--sh1);
+}
+.draft-item:hover{border-color:#93c5fd;box-shadow:0 3px 14px rgba(37,99,235,.11)}
+.draft-item.on{border-color:var(--blue);background:var(--blue4);box-shadow:0 3px 14px rgba(37,99,235,.16)}
+.d-num{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px}
+.d-name{font-size:13.5px;font-weight:700;color:var(--navy);margin-bottom:8px}
+
+/* ── Form ── */
+.frow{display:flex;gap:12px;align-items:flex-start}
+.fcol{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+.lbl{font-size:11.5px;font-weight:700;letter-spacing:.055em;text-transform:uppercase;color:var(--slate)}
+.inp,.sel,.txa {
+  width:100%; padding:10px 14px; border-radius:9px;
+  border:1.5px solid var(--border); background:var(--white);
+  color:var(--navy); font-family:var(--font); font-size:13.5px;
+  outline:none; transition:border .15s,box-shadow .15s; -webkit-appearance:none;
+}
+.txa{font-family:var(--mono);font-size:12.5px;resize:vertical;line-height:1.75;background:#fafbfc}
+.inp:focus,.sel:focus,.txa:focus{
+  border-color:var(--blue);
+  box-shadow:0 0 0 3px rgba(37,99,235,.1);
+}
+.inp::placeholder{color:var(--dim)}
+.sel option{background:#fff}
+
+/* ── Stat tiles ── */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{padding:14px 16px;border-radius:10px;background:var(--bg);border:1.5px solid var(--border)}
+.stat-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.stat-val{font-size:15px;font-weight:700;color:var(--navy)}
+
+/* ── Error banner ── */
+.err-box{display:flex;align-items:flex-start;gap:9px;padding:12px 14px;border-radius:9px;background:#fff1f2;border:1.5px solid #fecdd3;color:var(--red);font-size:13px;font-weight:500}
+
+/* ── Doc row ── */
+.doc-row{display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);box-shadow:var(--sh1);transition:all .15s}
+.doc-row:hover{border-color:#93c5fd;box-shadow:0 2px 12px rgba(37,99,235,.1)}
+.doc-ico{width:38px;height:38px;border-radius:9px;background:var(--blue3);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+
+/* ── File drop ── */
+.file-drop{display:flex;align-items:center;gap:14px;padding:16px;border-radius:10px;border:2px dashed #93c5fd;background:var(--blue4);cursor:pointer;transition:all .15s;position:relative}
+.file-drop:hover{border-color:var(--blue);background:var(--blue3)}
+.file-drop input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.fd-ico{width:42px;height:42px;border-radius:10px;background:var(--blue3);border:1.5px solid #bfdbfe;display:flex;align-items:center;justify-content:center;color:var(--blue);font-size:17px;flex-shrink:0}
+
+/* ── Empty state ── */
+.ap-empty{text-align:center;padding:36px 20px}
+.e-ico{width:52px;height:52px;border-radius:14px;background:var(--bg);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--dim);margin:0 auto 12px}
+.e-title{font-size:14px;font-weight:700;color:var(--slate);margin-bottom:4px}
+.e-sub{font-size:12.5px;color:var(--muted)}
+
+/* ── Code note ── */
+.cnote{font-family:var(--mono);font-size:11.5px;color:var(--muted);background:var(--bg);border-left:3px solid var(--blue);padding:7px 12px;border-radius:0 7px 7px 0;margin-bottom:16px}
+
+/* ── Details ── */
+.ap-det{border:1.5px solid var(--border);border-radius:10px;overflow:hidden;margin-top:14px}
+.ap-det summary{padding:10px 14px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;background:var(--bg);user-select:none}
+.ap-det summary::-webkit-details-marker{display:none}
+.ap-det summary:hover{color:var(--navy)}
+.ap-det pre{padding:14px;font-family:var(--mono);font-size:11.5px;color:var(--slate);overflow:auto;border-top:1.5px solid var(--border);line-height:1.8;background:#fafbfc;max-height:280px}
+
+/* ── Readiness card ── */
+.rdy-card{border:1.5px solid var(--border);border-radius:12px;overflow:hidden;margin-top:16px;box-shadow:var(--sh1)}
+.rdy-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:var(--bg);border-bottom:1.5px solid var(--border)}
+.rdy-bd{padding:16px 18px;background:var(--white)}
+.miss{display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:8px;background:#fffbeb;border:1.5px solid #fde68a;font-size:12.5px;font-weight:600;color:#92400e;font-family:var(--mono)}
+
+/* ── Divider ── */
+.divider{height:1.5px;background:var(--border);margin:14px 0}
+
+/* ── Helpers ── */
+.stack>*+*{margin-top:14px}
+.stack-sm>*+*{margin-top:10px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.row2{display:flex;align-items:center;gap:7px}
+.grow{flex:1;min-width:0}
+.mt10{margin-top:10px}
+.mt14{margin-top:14px}
+.mt16{margin-top:16px}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono)}
+
+/* ── Spinner ── */
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin .7s linear infinite}
+
+/* ── Toast ── */
+.toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:9px;pointer-events:none}
+.toast{display:flex;align-items:flex-start;gap:10px;padding:13px 16px;border-radius:11px;background:var(--white);border:1.5px solid var(--border);box-shadow:0 10px 36px rgba(15,23,42,.15);pointer-events:all;min-width:280px;max-width:360px;font-size:13px;font-weight:500;color:var(--slate)}
+.toast.error{border-color:#fecdd3;background:#fff1f2;color:var(--red)}
+.toast.success{border-color:#bbf7d0;background:#f0fdf4;color:var(--green)}
+`;
+
+/* ─── Toast Component ─────────────────────────────────────────── */
+function Toasts({ items }) {
+  return (
+    <div className="toast-wrap">
+      <AnimatePresence>
+        {items.map((t) => (
+          <motion.div
+            key={t.id}
+            className={`toast ${t.type}`}
+            initial={{ opacity: 0, x: 80, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 80, scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+          >
+            <FontAwesomeIcon
+              icon={t.type === "error" ? faTriangleExclamation : faCircleCheck}
+              style={{ marginTop: 1, flexShrink: 0, fontSize: 14 }}
+            />
+            <span>{t.msg}</span>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ─── Main Portal ─────────────────────────────────────────────── */
 export default function ApplicantPortal() {
   const navigate = useNavigate();
 
-  const [tab, setTab] = useState("drafts"); // drafts | documents | submit
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [tab, setTab]         = useState("drafts");
+  const [busy, setBusy]       = useState(false);
+  const [toasts, setToasts]   = useState([]);
 
-  const [drafts, setDrafts] = useState([]);
-  const [selectedDraftId, setSelectedDraftId] = useState(null);
-  const selectedDraft = useMemo(
-    () => drafts.find((d) => d.id === selectedDraftId) || null,
-    [drafts, selectedDraftId]
-  );
+  const [drafts, setDrafts]         = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [documents, setDocuments]   = useState([]);
+  const [readiness, setReadiness]   = useState(null);
 
-  const [documents, setDocuments] = useState([]);
-  const [uploadFile, setUploadFile] = useState(null);
+  const [sectionKey,    setSectionKey]    = useState("businessInfo");
+  const [sectionData,   setSectionData]   = useState('{\n  "companyName": "",\n  "industry": ""\n}');
+  const [sectionStatus, setSectionStatus] = useState("IN_PROGRESS");
+
+  const [uploadFile,    setUploadFile]    = useState(null);
   const [uploadDocType, setUploadDocType] = useState("BANK_STATEMENT");
 
-  const [sectionKey, setSectionKey] = useState("businessInfo");
-  const [sectionData, setSectionData] = useState("{\n  \"example\": true\n}");
-  const [sectionStatusValue, setSectionStatusValue] = useState("IN_PROGRESS");
+  const [reqSections, setReqSections] = useState(DEFAULT_REQ_SECTIONS.join(", "));
+  const [reqDocTypes,  setReqDocTypes]  = useState(DEFAULT_REQ_DOCS.join(", "));
 
-  const [requiredSections, setRequiredSections] = useState(DEFAULT_REQUIRED_SECTIONS.join(", "));
-  const [requiredDocTypes, setRequiredDocTypes] = useState(DEFAULT_REQUIRED_DOC_TYPES.join(", "));
-  const [readiness, setReadiness] = useState(null);
+  const selectedDraft = useMemo(
+    () => drafts.find((d) => d.id === selectedId) || null,
+    [drafts, selectedId]
+  );
 
-  async function reloadDrafts(selectIdIfMissing = true) {
-    const list = await listDrafts();
-    setDrafts(list || []);
-    if (selectIdIfMissing) {
-      const id = selectedDraftId;
-      if (id && (list || []).some((d) => d.id === id)) return;
-      if ((list || []).length > 0) setSelectedDraftId(list[0].id);
+  const tidRef = useRef(0);
+  function addToast(msg, type = "info") {
+    const id = ++tidRef.current;
+    setToasts((p) => [...p, { id, msg, type }]);
+    setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 4500);
+  }
+
+  async function run(fn, okMsg) {
+    setBusy(true);
+    try {
+      const r = await fn();
+      if (okMsg) addToast(okMsg, "success");
+      return r;
+    } catch (e) {
+      const st = e?.response?.status;
+      // 401 is already handled by axiosConfig interceptor (clears tokens + redirects to /login).
+      // We silently bail here to avoid a double-redirect race condition.
+      if (st === 401) return;
+      const msg =
+        st === 409 ? "Version conflict — draft was modified. Reloading…"
+        : st === 403 ? "You don\'t have permission to do that."
+        : st === 404 ? "Resource not found."
+        : st >= 500  ? "Server error — please try again in a moment."
+        : e?.response?.data?.message || e?.message || "Something went wrong.";
+      addToast(msg, "error");
+      if (st === 409) await fetchDrafts();
+    } finally {
+      setBusy(false);
     }
   }
 
-  async function reloadDocuments() {
-    const list = await listDocuments({ loanDraftId: selectedDraftId || undefined });
-    setDocuments(list || []);
+  async function fetchDrafts() {
+    const list = await listDrafts();
+    setDrafts(list || []);
+    return list || [];
   }
 
+  async function fetchDocs(id) {
+    if (!id) { setDocuments([]); return; }
+    try {
+      const list = await listDocuments({ loanDraftId: id });
+      setDocuments(list || []);
+    } catch { setDocuments([]); }
+  }
+
+  // Auth guard: redirect to login immediately if no access token exists,
+  // before firing any API call that would 401.
   useEffect(() => {
-    // Load initial state
-    (async () => {
-      setBusy(true);
-      setError("");
-      try {
-        await reloadDrafts(true);
-      } catch (e) {
-        setError(e?.response?.data?.message || e?.message || "Failed to load drafts.");
-      } finally {
-        setBusy(false);
-      }
-    })();
+    if (!getAccessToken()) {
+      navigate("/login", { replace: true });
+      return;
+    }
+    run(async () => {
+      const list = await fetchDrafts();
+      if (list.length > 0) setSelectedId(list[0].id);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (!selectedDraftId) return;
-    (async () => {
-      try {
-        await reloadDocuments();
-      } catch {
-        // non-fatal
-      }
-    })();
+    fetchDocs(selectedId);
+    setReadiness(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDraftId]);
+  }, [selectedId]);
 
-  const onCreateDraft = async () => {
-    setBusy(true);
-    setError("");
-    try {
+  /* ── Actions ── */
+  const doCreateDraft = () =>
+    run(async () => {
       const d = await createDraft({
         data: { businessInfo: {}, ownerInfo: {}, loanRequest: {} },
         sectionStatus: { businessInfo: "IN_PROGRESS" },
         currentStep: "businessInfo",
       });
-      await reloadDrafts(false);
-      setSelectedDraftId(d?.id || null);
-      setTab("drafts");
-    } catch (e) {
-      setError(e?.response?.data?.message || e?.message || "Failed to create draft.");
-    } finally {
-      setBusy(false);
-    }
-  };
+      await fetchDrafts();
+      if (d?.id) setSelectedId(d.id);
+    }, "New draft created");
 
-  const onPatchSection = async () => {
-    if (!selectedDraftId) {
-      setError("Select or create a draft first.");
-      return;
-    }
-
-    setBusy(true);
-    setError("");
-    try {
-      const sectionObjStr = safeJsonString(sectionData);
-      const statusObj = sectionStatusValue ? { [sectionKey]: sectionStatusValue } : {};
+  const doPatchSection = () => {
+    if (!selectedId) { addToast("Select a draft first", "error"); return; }
+    let payload;
+    try { payload = safeJsonStr(sectionData); }
+    catch { addToast("Invalid JSON — fix the payload and retry", "error"); return; }
+    run(async () => {
       const updated = await patchDraftSection({
-        draftId: selectedDraftId,
+        draftId: selectedId,
         sectionKey,
-        sectionData: sectionObjStr,
-        sectionStatus: statusObj,
+        sectionData: payload,
+        sectionStatus: { [sectionKey]: sectionStatus },
         currentStep: sectionKey,
         expectedVersion: selectedDraft?.version,
       });
-
-      // Update local list
-      setDrafts((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
-    } catch (e) {
-      const msg =
-        e?.response?.status === 409
-          ? "Version conflict (409). Reload draft list and try again."
-          : e?.response?.data?.message || e?.message || "Failed to patch section.";
-      setError(msg);
-    } finally {
-      setBusy(false);
-    }
+      setDrafts((p) => p.map((d) => (d.id === updated.id ? updated : d)));
+    }, "Section saved successfully");
   };
 
-  const onUploadDocument = async () => {
-    if (!uploadFile) {
-      setError("Choose a file to upload.");
-      return;
-    }
-    if (!selectedDraftId) {
-      setError("Select or create a draft first (documents should be linked to a draft).");
-      return;
-    }
-
-    setBusy(true);
-    setError("");
-    try {
-      const metadata = { docType: uploadDocType };
+  const doUpload = () => {
+    if (!uploadFile)  { addToast("Choose a file first", "error"); return; }
+    if (!selectedId)  { addToast("Select a draft first", "error"); return; }
+    run(async () => {
       await uploadDocument({
         file: uploadFile,
-        loanDraftId: selectedDraftId,
-        metadata,
+        loanDraftId: selectedId,
+        metadata: { docType: uploadDocType },
       });
       setUploadFile(null);
-      await reloadDocuments();
-      setTab("documents");
-    } catch (e) {
-      setError(e?.response?.data?.message || e?.message || "Upload failed.");
-    } finally {
-      setBusy(false);
-    }
+      await fetchDocs(selectedId);
+    }, "Document uploaded");
   };
 
-  const onCheckReadiness = async () => {
-    if (!selectedDraftId) {
-      setError("Select or create a draft first.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    setReadiness(null);
-    try {
-      const rs = requiredSections
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const rd = requiredDocTypes
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-
+  const doCheckReadiness = () => {
+    if (!selectedId) { addToast("Select a draft first", "error"); return; }
+    run(async () => {
+      const rs = reqSections.split(",").map((s) => s.trim()).filter(Boolean);
+      const rd = reqDocTypes.split(",").map((s) => s.trim()).filter(Boolean);
       const r = await checkDraftReadiness({
-        draftId: selectedDraftId,
+        draftId: selectedId,
         requiredSections: rs,
         requiredDocumentTypes: rd,
         runDecisioning: false,
       });
       setReadiness(r);
       setTab("submit");
-    } catch (e) {
-      setError(e?.response?.data?.message || e?.message || "Readiness check failed.");
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
-  const onSubmit = async () => {
-    if (!selectedDraftId) return;
-
-    setBusy(true);
-    setError("");
-    try {
-      const rs = requiredSections
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const rd = requiredDocTypes
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-
+  const doSubmit = () => {
+    if (!selectedId) return;
+    run(async () => {
+      const rs = reqSections.split(",").map((s) => s.trim()).filter(Boolean);
+      const rd = reqDocTypes.split(",").map((s) => s.trim()).filter(Boolean);
       const updated = await submitDraft({
-        draftId: selectedDraftId,
+        draftId: selectedId,
         requiredSections: rs,
         requiredDocumentTypes: rd,
         runDecisioning: true,
       });
-      setDrafts((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
-      setReadiness({ ready: true, missingSections: [], missingDocumentTypes: [], draftId: selectedDraftId });
-    } catch (e) {
-      setError(e?.response?.data?.message || e?.message || "Submit failed.");
-    } finally {
-      setBusy(false);
-    }
+      setDrafts((p) => p.map((d) => (d.id === updated.id ? updated : d)));
+      setReadiness({ ready: true, missingSections: [], missingDocumentTypes: [] });
+    }, "Application submitted!");
   };
 
-  const onDecide = async () => {
-    if (!selectedDraftId) return;
-
-    setBusy(true);
-    setError("");
-    try {
-      const updated = await decideDraft({ draftId: selectedDraftId });
-      setDrafts((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
-      setTab("drafts");
-    } catch (e) {
-      setError(e?.response?.data?.message || e?.message || "Decisioning failed.");
-    } finally {
-      setBusy(false);
-    }
+  const doDecide = () => {
+    if (!selectedId) return;
+    run(async () => {
+      const updated = await decideDraft({ draftId: selectedId });
+      setDrafts((p) => p.map((d) => (d.id === updated.id ? updated : d)));
+    }, "Decisioning complete");
   };
 
-  const onDeleteDraft = async () => {
-    if (!selectedDraftId) return;
-    setBusy(true);
-    setError("");
-    try {
-      await deleteDraft({ draftId: selectedDraftId });
-      setSelectedDraftId(null);
-      await reloadDrafts(true);
+  const doDeleteDraft = () => {
+    if (!selectedId) return;
+    run(async () => {
+      await deleteDraft({ draftId: selectedId });
+      const list = await fetchDrafts();
+      setSelectedId(list[0]?.id || null);
       setDocuments([]);
       setReadiness(null);
-    } catch (e) {
-      setError(e?.response?.data?.message || e?.message || "Delete failed.");
-    } finally {
-      setBusy(false);
-    }
+    }, "Draft deleted");
   };
 
-  const onDeleteDocument = async (documentId) => {
-    setBusy(true);
-    setError("");
-    try {
-      await deleteDocument({ documentId });
-      await reloadDocuments();
-    } catch (e) {
-      setError(e?.response?.data?.message || e?.message || "Delete document failed.");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const doDeleteDoc = (docId) =>
+    run(async () => {
+      await deleteDocument({ documentId: docId });
+      await fetchDocs(selectedId);
+    }, "Document removed");
 
-  const onLogout = async () => {
+  const doLogout = async () => {
     setBusy(true);
-    setError("");
     try {
       const rt = getRefreshToken();
-      if (rt) {
-        try {
-          await logout({ refreshToken: rt });
-        } catch {
-          // best-effort
-        }
-      }
+      if (rt) { try { await logout({ refreshToken: rt }); } catch {} }
       clearTokens();
       navigate("/login", { replace: true });
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   };
 
+  const TABS = [
+    { key: "drafts",    label: "Applications", icon: faBriefcase    },
+    { key: "documents", label: "Documents",     icon: faFileContract },
+    { key: "submit",    label: "Submit",        icon: faPaperPlane   },
+  ];
+
+  /* ── Render ── */
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm">
-              <FontAwesomeIcon icon={faGaugeHigh} />
-            </div>
-            <div className="leading-tight">
-              <div className="text-sm font-extrabold tracking-tight text-slate-900">
-                Applicant Portal
-              </div>
-              <div className="text-xs font-medium text-slate-500">
-                Drafts, documents, submission
-              </div>
-            </div>
-          </div>
+    <>
+      <style>{CSS}</style>
+      <div className="ap">
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onLogout}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-              disabled={busy}
-            >
-              <FontAwesomeIcon icon={faArrowRightFromBracket} />
-              Logout
-            </button>
-          </div>
-        </div>
-
-        <div className="mx-auto max-w-6xl px-4 pb-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {[
-              { k: "drafts", label: "Drafts", icon: faFolderOpen },
-              { k: "documents", label: "Documents", icon: faFileArrowUp },
-              { k: "submit", label: "Submit", icon: faListCheck },
-            ].map((t) => (
-              <button
-                key={t.k}
-                type="button"
-                onClick={() => setTab(t.k)}
-                className={[
-                  "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold",
-                  tab === t.k ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200",
-                ].join(" ")}
-              >
-                <FontAwesomeIcon icon={t.icon} />
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl px-4 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35 }}
-          className="grid grid-cols-1 gap-6 lg:grid-cols-3"
-        >
-          {/* Left: draft selection */}
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-extrabold text-slate-900">Your drafts</div>
-              <motion.button
-                type="button"
-                onClick={onCreateDraft}
-                disabled={busy}
-                whileHover={busy ? undefined : { scale: 1.02 }}
-                whileTap={busy ? undefined : { scale: 0.98 }}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-500 px-3 py-2 text-xs font-extrabold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-              >
-                <FontAwesomeIcon icon={faPlus} />
-                New draft
-              </motion.button>
-            </div>
-
-            <div className="mt-4 space-y-2">
-              {drafts.length === 0 ? (
-                <div className="rounded-3xl border border-dashed border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-700">
-                      <FontAwesomeIcon icon={faClock} />
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-extrabold text-slate-900">Start a new application</div>
-                      <div className="mt-1 text-sm text-slate-600">
-                        Create a draft to begin entering business details and uploading documents.
-                      </div>
-
-                      <motion.button
-                        type="button"
-                        onClick={onCreateDraft}
-                        disabled={busy}
-                        whileHover={busy ? undefined : { scale: 1.02 }}
-                        whileTap={busy ? undefined : { scale: 0.98 }}
-                        className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-extrabold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-                      >
-                        <FontAwesomeIcon icon={faPlus} />
-                        Create draft
-                      </motion.button>
-                    </div>
-                  </div>
+        {/* Header */}
+        <header className="ap-hdr">
+          <div className="ap-hdr-in">
+            <div className="ap-hdr-row">
+              <div className="ap-brand">
+                <div className="ap-brand-mark">
+                  <FontAwesomeIcon icon={faBuilding} />
                 </div>
-              ) : (
-                drafts.map((d) => (
-                  <motion.button
-                    key={d.id}
-                    type="button"
-                    onClick={() => setSelectedDraftId(d.id)}
-                    whileHover={{ y: -1 }}
-                    whileTap={{ scale: 0.99 }}
-                    className={[
-                      "w-full rounded-2xl border px-4 py-3 text-left shadow-sm transition",
-                      selectedDraftId === d.id
-                        ? "border-blue-300 bg-blue-50"
-                        : "border-slate-200 bg-white hover:bg-slate-50",
-                    ].join(" ")}
+                <div>
+                  <div className="ap-brand-name">LoanPortal</div>
+                  <div className="ap-brand-sub">Business Finance Platform</div>
+                </div>
+              </div>
+
+              <div className="row2">
+                <AnimatePresence>
+                  {busy && (
+                    <motion.span
+                      key="busy"
+                      initial={{ opacity: 0, scale: 0.85 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.85 }}
+                      className="row2 muted"
+                      style={{ fontSize: 12.5 }}
+                    >
+                      <FontAwesomeIcon icon={faSpinner} className="spin" />
+                      Processing…
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+                <button className="btn btn-ghost btn-sm" onClick={doLogout} disabled={busy}>
+                  <FontAwesomeIcon icon={faArrowRightFromBracket} />
+                  Sign out
+                </button>
+              </div>
+            </div>
+
+            <nav className="ap-nav">
+              {TABS.map((t) => (
+                <button
+                  key={t.key}
+                  className={`ap-tab ${tab === t.key ? "on" : ""}`}
+                  onClick={() => setTab(t.key)}
+                >
+                  <span className="ti"><FontAwesomeIcon icon={t.icon} /></span>
+                  {t.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+        </header>
+
+        {/* Body */}
+        <div className="ap-body">
+
+          {/* Sidebar */}
+          <aside className="ap-aside">
+            <div className="card">
+              <div className="card-hd">
+                <div className="card-title">
+                  <span className="card-ico"><FontAwesomeIcon icon={faFolderOpen} /></span>
+                  My Drafts
+                </div>
+                <motion.button
+                  className="btn btn-primary btn-sm"
+                  onClick={doCreateDraft}
+                  disabled={busy}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <FontAwesomeIcon icon={faPlus} /> New
+                </motion.button>
+              </div>
+
+              <div className="card-bd">
+                {drafts.length === 0 ? (
+                  <div className="ap-empty">
+                    <div className="e-ico"><FontAwesomeIcon icon={faBriefcase} /></div>
+                    <div className="e-title">No applications yet</div>
+                    <div className="e-sub">Create your first draft to begin</div>
+                    <motion.button
+                      className="btn btn-primary btn-sm"
+                      style={{ marginTop: 14 }}
+                      onClick={doCreateDraft}
+                      disabled={busy}
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.96 }}
+                    >
+                      <FontAwesomeIcon icon={faPlus} /> Create draft
+                    </motion.button>
+                  </div>
+                ) : (
+                  <div className="stack-sm">
+                    {drafts.map((d, i) => {
+                      const th = statusTheme(d.status);
+                      return (
+                        <motion.button
+                          key={d.id}
+                          className={`draft-item ${selectedId === d.id ? "on" : ""}`}
+                          onClick={() => setSelectedId(d.id)}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05, duration: 0.2 }}
+                          whileHover={{ x: 3 }}
+                          whileTap={{ scale: 0.99 }}
+                        >
+                          <div className="d-num">#{shortId(d.id)} · v{d.version ?? 0}</div>
+                          <div className="d-name">Draft application</div>
+                          <div className="row2">
+                            <span className="badge" style={{ background: th.bg, color: th.color }}>
+                              <span className="bdot" style={{ background: th.dot }} />
+                              {d.status || "DRAFT"}
+                            </span>
+                          </div>
+                          {d.decision && (
+                            <div style={{ marginTop: 5, fontSize: 11.5, fontWeight: 700, color: "var(--blue)", fontFamily: "var(--mono)" }}>
+                              ⟶ {d.decision}
+                            </div>
+                          )}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {selectedId && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-sm font-extrabold text-slate-900">Draft</div>
-                      <div className="text-xs font-semibold text-slate-500">v{d.version ?? 0}</div>
+                    <div className="divider" />
+                    <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
+                      Quick actions
                     </div>
-                    <div className="mt-1 text-xs text-slate-600">
-                      Status: <span className="font-semibold">{d.status}</span>
-                      {" · "}
-                      Step: <span className="font-semibold">{d.currentStep || "-"}</span>
+                    <div className="row" style={{ gap: 6 }}>
+                      <button className="btn btn-ghost btn-sm" disabled={busy} onClick={doCheckReadiness}
+                        title="Check readiness">
+                        <FontAwesomeIcon icon={faShieldHalved} /> Check
+                      </button>
+                      <button className="btn btn-success btn-sm" disabled={busy} onClick={doDecide}
+                        title="Run decisioning">
+                        <FontAwesomeIcon icon={faBolt} /> Decide
+                      </button>
+                      <button className="btn btn-danger btn-sm" disabled={busy} onClick={doDeleteDraft}
+                        style={{ width: 33, padding: 0 }} title="Delete draft">
+                        <FontAwesomeIcon icon={faTrash} />
+                      </button>
                     </div>
-                    {d.decision ? (
-                      <div className="mt-2 text-xs font-semibold text-slate-700">
-                        Decision: <span className="text-blue-700">{d.decision}</span>
-                      </div>
-                    ) : null}
-                  </motion.button>
-                ))
-              )}
+                  </motion.div>
+                )}
+              </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={onCheckReadiness}
-                disabled={busy || !selectedDraftId}
-                className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-extrabold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-              >
-                <FontAwesomeIcon icon={faCheckCircle} />
-                Check readiness
-              </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{ width: "100%", justifyContent: "center" }}
+              disabled={busy}
+              onClick={() => run(async () => {
+                const list = await fetchDrafts();
+                if (selectedId && !list.find((d) => d.id === selectedId)) {
+                  setSelectedId(list[0]?.id || null);
+                }
+              }, "Refreshed")}
+            >
+              <FontAwesomeIcon icon={faRotateRight} /> Refresh list
+            </button>
+          </aside>
 
-              <button
-                type="button"
-                onClick={onDecide}
-                disabled={busy || !selectedDraftId}
-                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-extrabold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-              >
-                <FontAwesomeIcon icon={faBolt} />
-                Run decisioning
-              </button>
-
-              <button
-                type="button"
-                onClick={onDeleteDraft}
-                disabled={busy || !selectedDraftId}
-                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-3 py-2 text-xs font-extrabold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-              >
-                <FontAwesomeIcon icon={faTriangleExclamation} />
-                Delete
-              </button>
-            </div>
-
-            {error ? (
-              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-                {error}
-              </div>
-            ) : null}
-
-            {busy ? (
-              <div className="mt-4 text-xs font-semibold text-slate-500">
-                Working…
-              </div>
-            ) : null}
-          </section>
-
-          {/* Right: tab content */}
-          <section className="lg:col-span-2">
+          {/* Content */}
+          <main className="ap-main">
             <AnimatePresence mode="wait" initial={false}>
-              {tab === "drafts" ? (
+              {tab === "drafts" && (
                 <motion.div
-                  key="tab-drafts"
-                  initial={{ opacity: 0, y: 8 }}
+                  key="drafts"
+                  className="stack"
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                 >
                   <DraftsPanel
-                    selectedDraft={selectedDraft}
-                    sectionKey={sectionKey}
-                    setSectionKey={setSectionKey}
-                    sectionData={sectionData}
-                    setSectionData={setSectionData}
-                    sectionStatusValue={sectionStatusValue}
-                    setSectionStatusValue={setSectionStatusValue}
-                    onPatchSection={onPatchSection}
-                    busy={busy}
+                    draft={selectedDraft}
+                    sectionKey={sectionKey}       setSectionKey={setSectionKey}
+                    sectionData={sectionData}     setSectionData={setSectionData}
+                    sectionStatus={sectionStatus} setSectionStatus={setSectionStatus}
+                    onSave={doPatchSection}        busy={busy}
                   />
                 </motion.div>
-              ) : null}
+              )}
 
-              {tab === "documents" ? (
+              {tab === "documents" && (
                 <motion.div
-                  key="tab-documents"
-                  initial={{ opacity: 0, y: 8 }}
+                  key="documents"
+                  className="stack"
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                 >
                   <DocumentsPanel
-                    selectedDraftId={selectedDraftId}
+                    selectedId={selectedId}
                     documents={documents}
-                    uploadFile={uploadFile}
-                    setUploadFile={setUploadFile}
-                    uploadDocType={uploadDocType}
-                    setUploadDocType={setUploadDocType}
-                    onUpload={onUploadDocument}
-                    onDeleteDocument={onDeleteDocument}
+                    uploadFile={uploadFile}       setUploadFile={setUploadFile}
+                    uploadDocType={uploadDocType} setUploadDocType={setUploadDocType}
+                    onUpload={doUpload}
+                    onDelete={doDeleteDoc}
                     busy={busy}
                   />
                 </motion.div>
-              ) : null}
+              )}
 
-              {tab === "submit" ? (
+              {tab === "submit" && (
                 <motion.div
-                  key="tab-submit"
-                  initial={{ opacity: 0, y: 8 }}
+                  key="submit"
+                  className="stack"
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                 >
                   <SubmitPanel
-                    selectedDraft={selectedDraft}
-                    requiredSections={requiredSections}
-                    setRequiredSections={setRequiredSections}
-                    requiredDocTypes={requiredDocTypes}
-                    setRequiredDocTypes={setRequiredDocTypes}
+                    draft={selectedDraft}
+                    reqSections={reqSections} setReqSections={setReqSections}
+                    reqDocTypes={reqDocTypes}  setReqDocTypes={setReqDocTypes}
                     readiness={readiness}
-                    onCheckReadiness={onCheckReadiness}
-                    onSubmit={onSubmit}
+                    onCheck={doCheckReadiness}
+                    onSubmit={doSubmit}
                     busy={busy}
                   />
                 </motion.div>
-              ) : null}
+              )}
             </AnimatePresence>
-          </section>
-        </motion.div>
-      </main>
-    </div>
-  );
-}
-
-function DraftsPanel({
-  selectedDraft,
-  sectionKey,
-  setSectionKey,
-  sectionData,
-  setSectionData,
-  sectionStatusValue,
-  setSectionStatusValue,
-  onPatchSection,
-  busy,
-}) {
-  return (
-    <div className="space-y-6">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="text-sm font-extrabold text-slate-900">Draft details</div>
-        {!selectedDraft ? (
-          <div className="mt-3 text-sm text-slate-600">Select a draft to view details.</div>
-        ) : (
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <div className="text-xs font-semibold text-slate-500">Status</div>
-              <div className="mt-1 text-sm font-extrabold text-slate-900">{selectedDraft.status}</div>
-            </div>
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <div className="text-xs font-semibold text-slate-500">Current step</div>
-              <div className="mt-1 text-sm font-extrabold text-slate-900">{selectedDraft.currentStep || "-"}</div>
-            </div>
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <div className="text-xs font-semibold text-slate-500">Risk score</div>
-              <div className="mt-1 text-sm font-extrabold text-slate-900">
-                {selectedDraft.riskScore ?? "—"}
-              </div>
-            </div>
-            <div className="rounded-2xl bg-slate-50 p-4">
-              <div className="text-xs font-semibold text-slate-500">Decision</div>
-              <div className="mt-1 text-sm font-extrabold text-slate-900">
-                {selectedDraft.decision ?? "—"}
-              </div>
-            </div>
-
-            <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="text-xs font-semibold text-slate-500">Decision reason</div>
-              <div className="mt-1 text-sm text-slate-700">
-                {selectedDraft.decisionReason ?? "—"}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="text-sm font-extrabold text-slate-900">Patch a section</div>
-        <p className="mt-2 text-sm text-slate-600">
-          The backend stores draft.data and draft.sectionStatus as JSON encoded strings. This tool calls{" "}
-          <code className="rounded bg-slate-100 px-2 py-0.5 text-xs">PATCH /api/loan/drafts/:id/sections</code>.
-        </p>
-
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <label className="block">
-            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Section key</div>
-            <input
-              value={sectionKey}
-              onChange={(e) => setSectionKey(e.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
-              placeholder="businessInfo"
-            />
-          </label>
-
-          <label className="block">
-            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Section status</div>
-            <select
-              value={sectionStatusValue}
-              onChange={(e) => setSectionStatusValue(e.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
-            >
-              <option value="IN_PROGRESS">IN_PROGRESS</option>
-              <option value="COMPLETED">COMPLETED</option>
-            </select>
-          </label>
-
-          <div className="flex items-end">
-            <motion.button
-              type="button"
-              whileHover={busy ? undefined : { scale: 1.02 }}
-              whileTap={busy ? undefined : { scale: 0.98 }}
-              onClick={onPatchSection}
-              disabled={busy || !selectedDraft}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-500 px-4 py-3 text-sm font-extrabold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-            >
-              Patch section <FontAwesomeIcon icon={faFileArrowUp} />
-            </motion.button>
-          </div>
-        </div>
-
-        <label className="mt-4 block">
-          <div className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Section JSON</div>
-          <textarea
-            value={sectionData}
-            onChange={(e) => setSectionData(e.target.value)}
-            rows={9}
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-mono text-xs outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
-          />
-        </label>
-
-        {selectedDraft?.data ? (
-          <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <summary className="cursor-pointer text-sm font-bold text-slate-900">
-              View current draft.data JSON
-            </summary>
-            <pre className="mt-3 overflow-auto text-xs text-slate-800">{prettyJson(selectedDraft.data)}</pre>
-          </details>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function DocumentsPanel({
-  selectedDraftId,
-  documents,
-  uploadFile,
-  setUploadFile,
-  uploadDocType,
-  setUploadDocType,
-  onUpload,
-  onDeleteDocument,
-  busy,
-}) {
-  return (
-    <div className="space-y-6">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="text-sm font-extrabold text-slate-900">Upload a document</div>
-        <p className="mt-2 text-sm text-slate-600">
-          Upload PDFs or images and link them to the selected draft. This calls{" "}
-          <code className="rounded bg-slate-100 px-2 py-0.5 text-xs">POST /api/documents</code>.
-        </p>
-
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <label className="block md:col-span-2">
-            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">File</div>
-            <input
-              type="file"
-              accept=".pdf,image/png,image/jpeg"
-              onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
-            />
-            <div className="mt-2 text-xs text-slate-500">
-              Draft link:{" "}
-              <span className="font-semibold text-slate-700">
-                {selectedDraftId || "Select a draft first"}
-              </span>
-            </div>
-          </label>
-
-          <label className="block">
-            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Doc type</div>
-            <select
-              value={uploadDocType}
-              onChange={(e) => setUploadDocType(e.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
-            >
-              <option value="BANK_STATEMENT">BANK_STATEMENT</option>
-              <option value="TAX_RETURN">TAX_RETURN</option>
-              <option value="OTHER">OTHER</option>
-            </select>
-
-            <motion.button
-              type="button"
-              whileHover={busy ? undefined : { scale: 1.02 }}
-              whileTap={busy ? undefined : { scale: 0.98 }}
-              onClick={onUpload}
-              disabled={busy || !selectedDraftId}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-500 px-4 py-3 text-sm font-extrabold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-            >
-              Upload <FontAwesomeIcon icon={faFileArrowUp} />
-            </motion.button>
-          </label>
+          </main>
         </div>
       </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="text-sm font-extrabold text-slate-900">Documents</div>
-        <div className="mt-4 space-y-2">
-          {documents.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-              No documents found for this draft.
+      <Toasts items={toasts} />
+    </>
+  );
+}
+
+/* ─── Drafts Panel ────────────────────────────────────────────── */
+function DraftsPanel({ draft, sectionKey, setSectionKey, sectionData, setSectionData, sectionStatus, setSectionStatus, onSave, busy }) {
+  const th = statusTheme(draft?.status);
+
+  return (
+    <>
+      {/* Overview card */}
+      <div className="card">
+        <div className="card-hd">
+          <div className="card-title">
+            <span className="card-ico"><FontAwesomeIcon icon={faGaugeHigh} /></span>
+            Application Overview
+          </div>
+        </div>
+        <div className="card-bd">
+          {!draft ? (
+            <div className="ap-empty">
+              <div className="e-ico"><FontAwesomeIcon icon={faBriefcase} /></div>
+              <div className="e-title">No draft selected</div>
+              <div className="e-sub">Select or create a draft from the sidebar to view details</div>
             </div>
           ) : (
-            documents.map((d) => (
-              <div
-                key={d.id}
-                className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:flex-row md:items-center md:justify-between"
-              >
-                <div>
-                  <div className="text-sm font-extrabold text-slate-900">{d.originalFilename}</div>
-                  <div className="mt-1 text-xs text-slate-600">
-                    {d.contentType} · {(d.sizeBytes / 1024).toFixed(1)} KB
-                  </div>
-                  <div className="mt-2 text-xs text-slate-600">
-                    Metadata: <code className="rounded bg-slate-100 px-2 py-0.5">{d.metadata || "{}"}</code>
+            <motion.div key={draft.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
+              <div className="stats">
+                <div className="stat">
+                  <div className="stat-lbl"><FontAwesomeIcon icon={faClock} /> Status</div>
+                  <div className="stat-val">
+                    <span className="badge" style={{ background: th.bg, color: th.color, fontSize: 12 }}>
+                      <span className="bdot" style={{ background: th.dot }} />
+                      {draft.status || "DRAFT"}
+                    </span>
                   </div>
                 </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <a
-                    href={getDocumentDownloadUrl(d.id)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-extrabold text-white hover:bg-slate-800"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Download <FontAwesomeIcon icon={faArrowRightFromBracket} />
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => onDeleteDocument(d.id)}
-                    className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-3 py-2 text-xs font-extrabold text-white hover:bg-red-700"
-                    disabled={busy}
-                  >
-                    Delete <FontAwesomeIcon icon={faTriangleExclamation} />
-                  </button>
+                <div className="stat">
+                  <div className="stat-lbl"><FontAwesomeIcon icon={faListCheck} /> Current step</div>
+                  <div className="stat-val" style={{ fontSize: 13, fontFamily: "var(--mono)", fontWeight: 600 }}>
+                    {draft.currentStep || "—"}
+                  </div>
+                </div>
+                <div className="stat">
+                  <div className="stat-lbl"><FontAwesomeIcon icon={faShieldHalved} /> Risk score</div>
+                  <div className="stat-val">{draft.riskScore ?? "—"}</div>
+                </div>
+                <div className="stat">
+                  <div className="stat-lbl"><FontAwesomeIcon icon={faBolt} /> Decision</div>
+                  <div className="stat-val" style={{ fontSize: 13.5, color: draft.decision ? "var(--blue)" : "var(--muted)" }}>
+                    {draft.decision ?? "Pending"}
+                  </div>
                 </div>
               </div>
-            ))
+
+              {draft.decisionReason && (
+                <div className="stat" style={{ marginTop: 10 }}>
+                  <div className="stat-lbl"><FontAwesomeIcon icon={faFileContract} /> Decision reason</div>
+                  <div style={{ marginTop: 5, fontSize: 13.5, color: "var(--slate)", lineHeight: 1.65 }}>
+                    {draft.decisionReason}
+                  </div>
+                </div>
+              )}
+            </motion.div>
           )}
         </div>
       </div>
-    </div>
+
+      {/* Section editor */}
+      <div className="card">
+        <div className="card-hd">
+          <div className="card-title">
+            <span className="card-ico"><FontAwesomeIcon icon={faFileArrowUp} /></span>
+            Edit Section Data
+          </div>
+          <motion.button
+            className="btn btn-primary btn-sm"
+            onClick={onSave}
+            disabled={busy || !draft}
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
+          >
+            {busy
+              ? <FontAwesomeIcon icon={faSpinner} className="spin" />
+              : <FontAwesomeIcon icon={faFileArrowUp} />}
+            Save section
+          </motion.button>
+        </div>
+        <div className="card-bd">
+          <div className="cnote">PATCH /api/loan/drafts/:id/sections</div>
+
+          <div className="frow" style={{ marginBottom: 12 }}>
+            <div className="fcol">
+              <label className="lbl">Section key</label>
+              <input
+                className="inp"
+                value={sectionKey}
+                onChange={(e) => setSectionKey(e.target.value)}
+                placeholder="e.g. businessInfo"
+              />
+            </div>
+            <div className="fcol">
+              <label className="lbl">Section status</label>
+              <select className="sel" value={sectionStatus} onChange={(e) => setSectionStatus(e.target.value)}>
+                <option value="IN_PROGRESS">IN_PROGRESS</option>
+                <option value="COMPLETED">COMPLETED</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="fcol">
+            <label className="lbl">JSON payload</label>
+            <textarea
+              className="txa"
+              value={sectionData}
+              onChange={(e) => setSectionData(e.target.value)}
+              rows={9}
+              spellCheck={false}
+            />
+          </div>
+
+          {draft?.data && (
+            <details className="ap-det">
+              <summary>
+                <FontAwesomeIcon icon={faChevronRight} style={{ fontSize: 10 }} />
+                View current draft.data (read-only)
+              </summary>
+              <pre>{prettyJson(draft.data)}</pre>
+            </details>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
-function SubmitPanel({
-  selectedDraft,
-  requiredSections,
-  setRequiredSections,
-  requiredDocTypes,
-  setRequiredDocTypes,
-  readiness,
-  onCheckReadiness,
-  onSubmit,
-  busy,
-}) {
+/* ─── Documents Panel ─────────────────────────────────────────── */
+function DocumentsPanel({ selectedId, documents, uploadFile, setUploadFile, uploadDocType, setUploadDocType, onUpload, onDelete, busy }) {
   return (
-    <div className="space-y-6">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="text-sm font-extrabold text-slate-900">Readiness & submission</div>
-        <p className="mt-2 text-sm text-slate-600">
-          The backend enforces required sections (sectionStatus must be COMPLETED) and required documents (documents.metadata.docType).
-        </p>
-
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-          <label className="block">
-            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-              Required sections (comma-separated)
-            </div>
-            <input
-              value={requiredSections}
-              onChange={(e) => setRequiredSections(e.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
-              placeholder="businessInfo, ownerInfo, loanRequest"
-            />
-          </label>
-
-          <label className="block">
-            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
-              Required document types (comma-separated)
-            </div>
-            <input
-              value={requiredDocTypes}
-              onChange={(e) => setRequiredDocTypes(e.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/15"
-              placeholder="BANK_STATEMENT, TAX_RETURN"
-            />
-          </label>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={onCheckReadiness}
-            disabled={busy || !selectedDraft}
-            className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-extrabold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-          >
-            Check readiness <FontAwesomeIcon icon={faListCheck} />
-          </button>
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={busy || !selectedDraft || readiness?.ready !== true}
-            className="inline-flex items-center gap-2 rounded-2xl bg-blue-500 px-4 py-3 text-sm font-extrabold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-          >
-            Submit <FontAwesomeIcon icon={faArrowRightFromBracket} />
-          </button>
-        </div>
-
-        {!selectedDraft ? (
-          <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-            Select a draft first.
+    <>
+      {/* Upload card */}
+      <div className="card">
+        <div className="card-hd">
+          <div className="card-title">
+            <span className="card-ico"><FontAwesomeIcon icon={faFileArrowUp} /></span>
+            Upload Document
           </div>
-        ) : null}
+          <motion.button
+            className="btn btn-primary btn-sm"
+            onClick={onUpload}
+            disabled={busy || !selectedId}
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
+          >
+            {busy
+              ? <FontAwesomeIcon icon={faSpinner} className="spin" />
+              : <FontAwesomeIcon icon={faFileArrowUp} />}
+            Upload
+          </motion.button>
+        </div>
+        <div className="card-bd">
+          <div className="cnote">POST /api/documents — linked to selected draft</div>
 
-        {readiness ? (
-          <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-extrabold text-slate-900">Readiness result</div>
-              <div
-                className={[
-                  "rounded-full px-3 py-1 text-xs font-extrabold",
-                  readiness.ready ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800",
-                ].join(" ")}
+          <div className="frow" style={{ alignItems: "flex-start" }}>
+            <div className="fcol" style={{ flex: 2 }}>
+              <label className="lbl">File (PDF · PNG · JPG)</label>
+              <label className="file-drop">
+                <div className="fd-ico"><FontAwesomeIcon icon={faFile} /></div>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--blue)" }}>
+                    {uploadFile ? uploadFile.name : "Click to choose a file"}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3 }}>
+                    Linked to draft: {selectedId ? `#${shortId(selectedId)}` : "none selected"}
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  accept=".pdf,image/png,image/jpeg"
+                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                />
+              </label>
+            </div>
+            <div className="fcol">
+              <label className="lbl">Document type</label>
+              <select className="sel" value={uploadDocType} onChange={(e) => setUploadDocType(e.target.value)}>
+                <option value="BANK_STATEMENT">BANK_STATEMENT</option>
+                <option value="TAX_RETURN">TAX_RETURN</option>
+                <option value="OTHER">OTHER</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Document list */}
+      <div className="card">
+        <div className="card-hd">
+          <div className="card-title">
+            <span className="card-ico"><FontAwesomeIcon icon={faFolderOpen} /></span>
+            Uploaded Files
+          </div>
+          <span className="badge" style={{ background: "var(--blue3)", color: "var(--blue)", fontSize: 12 }}>
+            {documents.length} {documents.length === 1 ? "file" : "files"}
+          </span>
+        </div>
+        <div className="card-bd">
+          {documents.length === 0 ? (
+            <div className="ap-empty">
+              <div className="e-ico"><FontAwesomeIcon icon={faFileContract} /></div>
+              <div className="e-title">No documents yet</div>
+              <div className="e-sub">Upload files above to attach them to this draft</div>
+            </div>
+          ) : (
+            <div className="stack-sm">
+              <AnimatePresence initial={false}>
+                {documents.map((d, i) => (
+                  <motion.div
+                    key={d.id}
+                    className="doc-row"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    transition={{ delay: i * 0.05 }}
+                    layout
+                  >
+                    <div className="doc-ico"><FontAwesomeIcon icon={faFile} /></div>
+                    <div className="grow" style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--navy)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {d.originalFilename}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--muted)", fontFamily: "var(--mono)", marginTop: 2 }}>
+                        {d.contentType} · {(d.sizeBytes / 1024).toFixed(1)} KB
+                      </div>
+                    </div>
+                    <div className="row2">
+                      <a
+                        href={getDocumentDownloadUrl(d.id)}
+                        className="btn btn-ghost btn-xs"
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Download"
+                      >
+                        <FontAwesomeIcon icon={faDownload} />
+                      </a>
+                      <button
+                        className="btn btn-danger btn-xs"
+                        onClick={() => onDelete(d.id)}
+                        disabled={busy}
+                        title="Delete"
+                      >
+                        <FontAwesomeIcon icon={faTrash} />
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ─── Submit Panel ────────────────────────────────────────────── */
+function SubmitPanel({ draft, reqSections, setReqSections, reqDocTypes, setReqDocTypes, readiness, onCheck, onSubmit, busy }) {
+  const ready = readiness?.ready === true;
+
+  return (
+    <div className="card">
+      <div className="card-hd">
+        <div className="card-title">
+          <span className="card-ico"><FontAwesomeIcon icon={faPaperPlane} /></span>
+          Review &amp; Submit
+        </div>
+      </div>
+      <div className="card-bd">
+        <div className="cnote">
+          All required sections must be COMPLETED · Required document types must be present
+        </div>
+
+        {!draft ? (
+          <div className="ap-empty">
+            <div className="e-ico"><FontAwesomeIcon icon={faListCheck} /></div>
+            <div className="e-title">No draft selected</div>
+            <div className="e-sub">Select an application from the sidebar first</div>
+          </div>
+        ) : (
+          <>
+            <div className="frow">
+              <div className="fcol">
+                <label className="lbl">Required sections</label>
+                <input
+                  className="inp"
+                  value={reqSections}
+                  onChange={(e) => setReqSections(e.target.value)}
+                  placeholder="businessInfo, ownerInfo, loanRequest"
+                />
+              </div>
+              <div className="fcol">
+                <label className="lbl">Required document types</label>
+                <input
+                  className="inp"
+                  value={reqDocTypes}
+                  onChange={(e) => setReqDocTypes(e.target.value)}
+                  placeholder="BANK_STATEMENT, TAX_RETURN"
+                />
+              </div>
+            </div>
+
+            <div className="row mt14">
+              <motion.button
+                className="btn btn-dark"
+                onClick={onCheck}
+                disabled={busy}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
               >
-                {readiness.ready ? "READY" : "NOT READY"}
-              </div>
+                {busy
+                  ? <FontAwesomeIcon icon={faSpinner} className="spin" />
+                  : <FontAwesomeIcon icon={faShieldHalved} />}
+                Check readiness
+              </motion.button>
+
+              <motion.button
+                className="btn btn-primary"
+                onClick={onSubmit}
+                disabled={busy || !ready}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+              >
+                {busy
+                  ? <FontAwesomeIcon icon={faSpinner} className="spin" />
+                  : <FontAwesomeIcon icon={faPaperPlane} />}
+                Submit application
+              </motion.button>
             </div>
 
-            {!readiness.ready ? (
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="rounded-2xl bg-white p-4">
-                  <div className="text-xs font-semibold text-slate-500">Missing sections</div>
-                  <ul className="mt-2 list-disc pl-5 text-sm text-slate-700">
-                    {(readiness.missingSections || []).map((s) => (
-                      <li key={s}>{s}</li>
-                    ))}
-                    {(readiness.missingSections || []).length === 0 ? <li>None</li> : null}
-                  </ul>
-                </div>
+            <AnimatePresence>
+              {readiness && (
+                <motion.div
+                  className="rdy-card"
+                  initial={{ opacity: 0, y: 14, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ type: "spring", stiffness: 340, damping: 30 }}
+                >
+                  <div className="rdy-hd">
+                    <div className="row2">
+                      <FontAwesomeIcon
+                        icon={ready ? faCircleCheck : faCircleXmark}
+                        style={{ fontSize: 18, color: ready ? "var(--green)" : "var(--amber)" }}
+                      />
+                      <span style={{ fontSize: 14, fontWeight: 700 }}>Readiness check</span>
+                    </div>
+                    <span
+                      className="badge"
+                      style={ready
+                        ? { background: "#dcfce7", color: "var(--green)" }
+                        : { background: "#fef3c7", color: "var(--amber)" }}
+                    >
+                      <span className="bdot" style={{ background: ready ? "var(--green)" : "var(--amber)" }} />
+                      {ready ? "READY" : "NOT READY"}
+                    </span>
+                  </div>
 
-                <div className="rounded-2xl bg-white p-4">
-                  <div className="text-xs font-semibold text-slate-500">Missing document types</div>
-                  <ul className="mt-2 list-disc pl-5 text-sm text-slate-700">
-                    {(readiness.missingDocumentTypes || []).map((s) => (
-                      <li key={s}>{s}</li>
-                    ))}
-                    {(readiness.missingDocumentTypes || []).length === 0 ? <li>None</li> : null}
-                  </ul>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-3 flex items-center gap-2 text-sm font-semibold text-emerald-700">
-                <FontAwesomeIcon icon={faCheckCircle} />
-                Draft is ready to submit.
-              </div>
-            )}
-          </div>
-        ) : null}
+                  <div className="rdy-bd">
+                    {ready ? (
+                      <div className="row2" style={{ color: "var(--green)", fontWeight: 600, fontSize: 14 }}>
+                        <FontAwesomeIcon icon={faCircleCheck} style={{ fontSize: 17 }} />
+                        Application is complete — you can now submit.
+                      </div>
+                    ) : (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10, display: "flex", alignItems: "center", gap: 5 }}>
+                            <FontAwesomeIcon icon={faListCheck} /> Missing sections
+                          </div>
+                          <div className="stack-sm">
+                            {(readiness.missingSections || []).length === 0 ? (
+                              <div className="row2" style={{ fontSize: 13, color: "var(--green)", fontWeight: 600 }}>
+                                <FontAwesomeIcon icon={faCircleCheck} /> All sections complete
+                              </div>
+                            ) : (readiness.missingSections || []).map((s) => (
+                              <div key={s} className="miss">
+                                <FontAwesomeIcon icon={faTriangleExclamation} /> {s}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10, display: "flex", alignItems: "center", gap: 5 }}>
+                            <FontAwesomeIcon icon={faFileContract} /> Missing documents
+                          </div>
+                          <div className="stack-sm">
+                            {(readiness.missingDocumentTypes || []).length === 0 ? (
+                              <div className="row2" style={{ fontSize: 13, color: "var(--green)", fontWeight: 600 }}>
+                                <FontAwesomeIcon icon={faCircleCheck} /> All documents present
+                              </div>
+                            ) : (readiness.missingDocumentTypes || []).map((s) => (
+                              <div key={s} className="miss">
+                                <FontAwesomeIcon icon={faTriangleExclamation} /> {s}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        )}
       </div>
     </div>
   );

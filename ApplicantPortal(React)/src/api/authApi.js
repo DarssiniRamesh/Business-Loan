@@ -2,18 +2,11 @@ import { apiClient } from "./axiosConfig";
 import { clearTokens, setTokens } from "./tokenStorage";
 
 /**
- * Extract tokens from a backend auth response. We support multiple shapes because
- * the backend has evolved (and some environments may still return legacy fields).
- *
- * Examples supported:
- * - { accessToken, refreshToken }
- * - { access_token, refresh_token }
- * - { token }  (legacy access token field)
- * - { tokens: { accessToken, refreshToken } }
+ * Extract tokens from a backend auth response.
+ * Supports multiple response shapes for compatibility.
  */
 function extractTokens(authResponse) {
   const data = authResponse || {};
-
   const nested = data?.tokens && typeof data.tokens === "object" ? data.tokens : {};
 
   const accessToken =
@@ -37,12 +30,26 @@ function extractTokens(authResponse) {
 }
 
 /**
- * Normalize token strings before storage (avoid "Bearer Bearer ..." issues).
+ * Normalize a token string — strip any "Bearer " prefix that might
+ * have accidentally been stored, and ensure we never store "null" or "undefined" strings.
  */
 function normalizeToken(token) {
   const t = String(token || "").trim();
-  if (!t) return null;
-  return t.replace(/^Bearer\s+/i, "").trim();
+  if (!t || t === "null" || t === "undefined") return null;
+  return t.replace(/^Bearer\s+/i, "").trim() || null;
+}
+
+/**
+ * Safely store tokens — only stores values that are actual non-empty strings.
+ * Prevents "Bearer null" and "Bearer undefined" headers.
+ */
+function safeSetTokens({ accessToken, refreshToken }) {
+  const a = normalizeToken(accessToken);
+  const r = normalizeToken(refreshToken);
+  // Only call setTokens if at least one is valid
+  if (a || r) {
+    setTokens({ accessToken: a, refreshToken: r });
+  }
 }
 
 /**
@@ -58,16 +65,14 @@ export async function registerApplicant({ email, password }) {
 
 /**
  * PUBLIC_INTERFACE
- * Login step 1: validate credentials; may require MFA.
+ * Login: validate credentials and store tokens.
  * Backend: POST /api/auth/login
  *
- * Note: Some backend versions return `{ token }` (legacy) instead of `{ accessToken }`.
- * We persist either shape to ensure authenticated endpoints (e.g. draft creation) work.
+ * Always clears old tokens first, then stores new ones only if valid.
+ * Returns the raw response data so the caller can check for pendingMfa etc.
  */
 export async function loginStep1({ email, password }) {
-  // Ensure we don't keep using stale/invalid tokens if a previous session existed.
-  // This prevents authenticated calls (e.g. draft creation) from failing/redirecting
-  // due to leftover tokens when the new login attempt is invalid.
+  // Clear any stale tokens so we don't accidentally reuse them
   clearTokens();
 
   const normalizedEmail = String(email || "").trim().toLowerCase();
@@ -75,17 +80,9 @@ export async function loginStep1({ email, password }) {
   const data = res.data;
 
   const { accessToken, refreshToken } = extractTokens(data);
-  if (accessToken || refreshToken) {
-    setTokens({
-      accessToken: normalizeToken(accessToken),
-      refreshToken: normalizeToken(refreshToken),
-    });
-  } else {
-    // Defensive: if backend ever returns a non-token login response, don't allow old tokens to linger.
-    clearTokens();
-  }
+  safeSetTokens({ accessToken, refreshToken });
 
-  return data; // e.g. { pendingMfa, accessToken, refreshToken }
+  return data;
 }
 
 /**
@@ -98,17 +95,14 @@ export async function refreshTokens({ refreshToken }) {
   const data = res.data;
 
   const extracted = extractTokens(data);
-  setTokens({
-    accessToken: normalizeToken(extracted.accessToken),
-    refreshToken: normalizeToken(extracted.refreshToken),
-  });
+  safeSetTokens({ accessToken: extracted.accessToken, refreshToken: extracted.refreshToken });
 
   return data;
 }
 
 /**
  * PUBLIC_INTERFACE
- * Logout (revoke refresh token).
+ * Logout — revoke refresh token on the backend.
  * Backend: POST /api/auth/logout
  */
 export async function logout({ refreshToken }) {

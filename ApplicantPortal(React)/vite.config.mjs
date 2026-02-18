@@ -46,7 +46,19 @@ export default defineConfig(({ mode }) => {
     },
 
     server: {
-      port: Number(env.REACT_APP_PORT || 5173),
+      // The preview/proxy expects the frontend to be reachable from outside the container.
+      // `host: true` binds to 0.0.0.0.
+      host: true,
+      port: Number(env.REACT_APP_PORT || 3000),
+      strictPort: true,
+    },
+
+    // `vite preview` uses a different server config than `vite dev`.
+    // Ensure preview is also reachable on the expected port.
+    preview: {
+      host: true,
+      port: Number(env.REACT_APP_PORT || 3000),
+      strictPort: true,
     },
   };
 });

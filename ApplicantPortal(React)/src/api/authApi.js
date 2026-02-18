@@ -18,7 +18,11 @@ export async function registerApplicant({ email, password }) {
  */
 export async function loginStep1({ email, password }) {
   const res = await apiClient.post("/auth/login", { email, password });
-  return res.data; // { userId, pendingMfa }
+  const data = res.data;
+  if (data?.accessToken || data?.refreshToken) {
+    setTokens({ accessToken: data?.accessToken, refreshToken: data?.refreshToken });
+  }
+  return data; // { userId, pendingMfa }
 }
 
 /**

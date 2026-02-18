@@ -11,7 +11,7 @@ import {
   faShieldHalved,
   faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
-import { loginStep1, registerApplicant, verifyMfa } from "../api/authApi";
+import { loginStep1, registerApplicant } from "../api/authApi";
 
 function useQueryMode(defaultMode = "login") {
   const location = useLocation();
@@ -223,7 +223,7 @@ function Input({ label, icon, type = "text", value, onChange, error, right, auto
           "focus-within:ring-4 focus-within:ring-blue-500/15 focus-within:border-blue-500",
         ].join(" ")}
       >
-        <span className={error ? "text-red-500" : "text-slate-400"}>
+        <span className={error ? "text-red-500" : "text-slate-400"} >
           <FontAwesomeIcon icon={icon} />
         </span>
         <input
@@ -273,10 +273,6 @@ function LoginForm({ onSuccess, onSwitchToSignup }) {
   const [showPw, setShowPw] = useState(false);
   const [touched, setTouched] = useState({ email: false, password: false });
 
-  const [pendingMfa, setPendingMfa] = useState(false);
-  const [mfaUserId, setMfaUserId] = useState(null);
-  const [otp, setOtp] = useState("");
-
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -299,10 +295,9 @@ function LoginForm({ onSuccess, onSwitchToSignup }) {
       const res = await loginStep1({ email, password });
 
       if (res?.pendingMfa) {
-        setPendingMfa(true);
-        setMfaUserId(res?.userId || null);
+        setFormError("MFA is currently disabled in the frontend. Please contact support.");
       } else {
-        // If backend ever returns tokens directly (future), we can handle here.
+        // Tokens are stored by loginStep1 in authApi if returned.
         onSuccess?.();
       }
     } catch (err) {
@@ -312,32 +307,8 @@ function LoginForm({ onSuccess, onSwitchToSignup }) {
     }
   };
 
-  const submitMfa = async (e) => {
-    e.preventDefault();
-    setFormError("");
-    if (!mfaUserId) {
-      setFormError("MFA user context missing. Please retry login.");
-      return;
-    }
-    if (!otp || otp.trim().length < 4) {
-      setFormError("Enter the OTP code.");
-      return;
-    }
-
-    setBusy(true);
-    try {
-      await verifyMfa({ userId: mfaUserId, otp: otp.trim() });
-      onSuccess?.();
-    } catch (err) {
-      setFormError(err?.response?.data?.message || err?.message || "OTP verification failed.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div>
-      {!pendingMfa ? (
         <form onSubmit={submitStep1} className="space-y-5">
           <Input
             label="Email"
@@ -396,33 +367,6 @@ function LoginForm({ onSuccess, onSwitchToSignup }) {
             </button>
           </div>
         </form>
-      ) : (
-        <form onSubmit={submitMfa} className="space-y-5">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-            MFA is enabled for your account. Enter the one-time code to complete sign-in.
-          </div>
-
-          <Input
-            label="One-time code (OTP)"
-            icon={faLock}
-            type="text"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            error=""
-            autoComplete="one-time-code"
-          />
-
-          {formError ? (
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-              {formError}
-            </div>
-          ) : null}
-
-          <PrimaryButton type="submit" disabled={busy}>
-            {busy ? "Verifying..." : "Verify and continue"}
-          </PrimaryButton>
-        </form>
-      )}
     </div>
   );
 }
@@ -543,10 +487,6 @@ function SignupForm({ onSuccess, onSwitchToLogin }) {
         >
           Sign in
         </button>
-      </div>
-
-      <div className="text-center text-xs text-slate-500">
-        Note: MFA may be enabled by default for MVP.
       </div>
     </form>
   );

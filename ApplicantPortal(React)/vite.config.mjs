@@ -35,10 +35,12 @@ export default defineConfig(({ mode }) => {
       },
     },
 
-    // Fix dev/build transforms for application source `.js` files that contain JSX.
+    // Fix dev/build transforms for application source files that contain JSX.
+    // NOTE: If we set `include` too narrowly (e.g. only `.js`), Vite will skip transforming
+    // `.jsx` files and `vite:import-analysis` will fail to parse raw JSX.
     esbuild: {
       loader: "jsx",
-      include: /src\/.*\.js$/,
+      include: /src\/.*\.(js|jsx)$/,
     },
 
     define: {

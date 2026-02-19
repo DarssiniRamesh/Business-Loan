@@ -1,0 +1,63 @@
+.header {
+  position: sticky;
+  top: 0;
+  background: #FFFFFFE6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 2rem;
+  box-shadow: 0 2px 16px rgba(30,64,175,0.07);
+  z-index: 100;
+  transition: background 0.3s;
+}
+.header__logo {
+  display: flex;
+  align-items: center;
+  font-size: 1.55rem;
+  color: #1D4ED8;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+.header__icon {
+  margin-right: 0.7rem;
+  color: #1D4ED8;
+  transition: transform 0.3s;
+}
+.header__title {
+  transition: color 0.3s;
+}
+.header__nav {
+  display: flex;
+  align-items: center;
+  gap: 1.8rem;
+}
+.header__navlink {
+  font-size: 1rem;
+  color: #222e;
+  text-decoration: none;
+  transition: color 0.2s;
+  font-weight: 500;
+  position: relative;
+}
+.header__navlink:hover,
+.header__loginbtn:hover {
+  color: #1D4ED8;
+}
+.header__loginbtn {
+  background: #1D4ED8;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1.2rem;
+  border-radius: 7px;
+  font-weight: 600;
+  font-size: 1rem;
+  box-shadow: 0 2px 6px rgba(30,64,175,0.11);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  transition: background 0.18s;
+}
+.header__loginbtn:active {
+  background: #2563EB;
+}

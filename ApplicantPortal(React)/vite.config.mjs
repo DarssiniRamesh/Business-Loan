@@ -55,7 +55,7 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
 
       // Allow the Kavia preview hostname to access the dev server (prevents Vite host blocking).
-      allowedHosts: ["vscode-internal-11351-beta.beta01.cloud.kavia.ai"],
+      allowedHosts: ["vscode-internal-34796-beta.beta01.cloud.kavia.ai"],
     },
 
     // `vite preview` uses a different server config than `vite dev`.
@@ -66,7 +66,7 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
 
       // Apply the same allowlist for `vite preview` when accessed via the preview hostname.
-      allowedHosts: ["vscode-internal-21566-beta.beta01.cloud.kavia.ai"],
+      allowedHosts: ["vscode-internal-34796-beta.beta01.cloud.kavia.ai"],
     },
   };
 });

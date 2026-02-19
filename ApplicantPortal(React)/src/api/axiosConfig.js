@@ -152,10 +152,28 @@ function formatAuthorizationHeaderValue(rawToken) {
 function extractTokensFromResponse(data) {
   const d = data || {};
   const nested = d?.tokens && typeof d.tokens === "object" ? d.tokens : {};
+
+  // Spring backend returns: { accessToken, refreshToken, tokenType: "Bearer" }
+  // Keep compatibility with legacy shapes from earlier iterations.
   const accessToken =
-    d?.accessToken || d?.access_token || d?.token || d?.jwt || nested?.accessToken || nested?.access_token || nested?.token || null;
+    d?.accessToken ||
+    d?.access_token ||
+    d?.authToken ||
+    d?.token ||
+    d?.jwt ||
+    nested?.accessToken ||
+    nested?.access_token ||
+    nested?.authToken ||
+    nested?.token ||
+    null;
+
   const refreshToken =
-    d?.refreshToken || d?.refresh_token || nested?.refreshToken || nested?.refresh_token || null;
+    d?.refreshToken ||
+    d?.refresh_token ||
+    nested?.refreshToken ||
+    nested?.refresh_token ||
+    null;
+
   return { accessToken, refreshToken };
 }
 
@@ -253,10 +271,16 @@ apiClient.interceptors.response.use(
         try {
           if (!refreshInFlightPromise) {
             refreshInFlightPromise = (async () => {
-              const res = await refreshClient.post("/auth/refresh", { refreshToken });
+              // refreshToken is stored raw; ensure no accidental "Bearer " prefix is sent
+              const cleanRefreshToken = String(refreshToken || "").replace(/^Bearer\s+/i, "").trim();
+
+              const res = await refreshClient.post("/auth/refresh", { refreshToken: cleanRefreshToken });
               const { accessToken, refreshToken: newRefreshToken } = extractTokensFromResponse(res.data);
+
+              // Persist (tokenStorage handles normalization + keying)
               setTokens({ accessToken, refreshToken: newRefreshToken });
-              return accessToken;
+
+              return accessToken || null;
             })().finally(() => {
               refreshInFlightPromise = null;
             });

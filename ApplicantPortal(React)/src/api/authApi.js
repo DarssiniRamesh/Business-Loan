@@ -12,10 +12,12 @@ function extractTokens(authResponse) {
   const accessToken =
     data?.accessToken ||
     data?.access_token ||
+    data?.authToken ||
     data?.token ||
     data?.jwt ||
     nested?.accessToken ||
     nested?.access_token ||
+    nested?.authToken ||
     nested?.token ||
     null;
 

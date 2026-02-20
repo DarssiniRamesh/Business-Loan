@@ -95,7 +95,8 @@ test.describe("US-322427 Applicant registration (implemented behaviors)", () => 
     );
 
     await page.goto("/login?mode=signup");
-    await expect(page.getByText("Create account", { exact: true })).toBeVisible();
+    // Use an unambiguous, accessible locator (strict-mode safe).
+    await expect(page.getByRole("button", { name: "Create account" })).toBeVisible();
 
     // Trigger errors: invalid email + too-short password + mismatch confirm
     await page.getByPlaceholder("you@company.com").fill("not-an-email");

@@ -12,40 +12,46 @@ describe("ApplicantPortal public pages", () => {
 
     cy.title().should("match", /Business/i);
 
-    // Use semantic element selectors rather than ARIA roles (the app does not set role=banner).
-    cy.get("header").should("be.visible");
+    // Stable navbar root (data-cy) instead of relying on tag/structure.
+    cy.get('[data-cy="navbar"]').should("be.visible");
 
     // Brand link should route back to home.
-    cy.get("header")
-      .find('a[href="/"]')
-      .should("be.visible")
+    cy.get('[data-cy="navbar-brand"]')
+      .should("have.attr", "href", "/")
       .within(() => {
         cy.contains("BusinessLoan").should("be.visible");
         cy.contains("Applicant Portal").should("be.visible");
       });
 
     // Primary CTAs should exist and point to the right routes.
-    cy.get('a[href="/signup"]').contains(/Get Started/i).should("be.visible");
+    cy.get('[data-cy="navbar-signup"]')
+      .should("have.attr", "href", "/signup")
+      .contains(/Get Started/i)
+      .should("be.visible");
+
     cy.get('a[href="/signup"]').contains(/Check Eligibility/i).should("be.visible");
-    cy.get('a[href="/login"]').contains(/^Login$/).should("be.visible");
+
+    cy.get('[data-cy="navbar-login"]')
+      .should("have.attr", "href", "/login")
+      .contains(/^Login$/)
+      .should("be.visible");
   });
 
   it("Navbar actions navigate to Login and Signup", () => {
     cy.visit("/");
 
-    // Current header uses a single combined action button.
-    // Make selection unambiguous by targeting the button within the header nav.
-    cy.get("header nav")
-      .find("button")
-      .contains(/^Login\s*\/\s*Signup$/i)
-      .should("be.visible")
-      .click();
+    // Click Login via stable selector.
+    cy.get('[data-cy="navbar-login"]').should("be.visible").click();
+    cy.location("pathname").should("eq", "/login");
+    cy.contains(/welcome back|create account/i).should("be.visible");
 
-    // The app implements signup as a mode of the /login page.
+    // Go back home, then click Signup/Get Started via stable selector.
+    cy.visit("/");
+    cy.get('[data-cy="navbar-signup"]').should("be.visible").click();
+
+    // /signup route is implemented as /login?mode=signup redirect.
     cy.location("pathname").should("eq", "/login");
     cy.location("search").should("contain", "mode=signup");
-
-    // Also validate that the auth UI is present without relying on arbitrary timeouts.
     cy.contains(/welcome back|create account/i).should("be.visible");
   });
 
@@ -56,7 +62,7 @@ describe("ApplicantPortal public pages", () => {
     cy.location("pathname").should("eq", "/");
 
     // Confirm we're on landing page by presence of stable nav CTAs.
-    cy.get('header a[href="/signup"]').contains(/Get Started/i).should("be.visible");
+    cy.get('[data-cy="navbar-signup"]').contains(/Get Started/i).should("be.visible");
     cy.get('a[href="/signup"]').contains(/Check Eligibility/i).should("be.visible");
   });
 

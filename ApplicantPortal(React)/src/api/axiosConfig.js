@@ -113,9 +113,15 @@ function normalizeEnvBaseUrl(rawValue) {
 function resolveBaseUrl() {
   // Vite exposes REACT_APP_* via vite.config define (process.env)
   const rawFromEnv =
+    // Preferred keys (React convention)
     process.env.REACT_APP_API_BASE ||
     process.env.REACT_APP_API_BASE_URL ||
-    process.env.REACT_APP_BACKEND_URL;
+    process.env.REACT_APP_BACKEND_URL ||
+    // Some environments accidentally double-prefix injected env vars (REACT_APP_REACT_APP_*)
+    // Accept them as a fallback to avoid mis-routing requests (which leads to 401s).
+    process.env.REACT_APP_REACT_APP_API_BASE ||
+    process.env.REACT_APP_REACT_APP_API_BASE_URL ||
+    process.env.REACT_APP_REACT_APP_BACKEND_URL;
 
   const fromEnv = normalizeEnvBaseUrl(rawFromEnv);
 

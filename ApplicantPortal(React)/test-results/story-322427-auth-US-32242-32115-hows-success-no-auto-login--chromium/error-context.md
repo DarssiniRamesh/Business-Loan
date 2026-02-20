@@ -35,28 +35,25 @@
     - generic [ref=e40]:
       - generic [ref=e42]:
         - generic [ref=e43]:
-          - img [ref=e44]
-          - generic [ref=e46]: Network Error
-        - generic [ref=e47]:
-          - generic [ref=e48]: Email address
-          - generic [ref=e49]:
-            - img [ref=e51]
-            - textbox "you@company.com" [ref=e53]: e2e_1771576057347_54195@example.test
-        - generic [ref=e54]:
-          - generic [ref=e55]: Password
-          - generic [ref=e56]:
-            - img [ref=e58]
-            - textbox "Min. 8 characters" [ref=e60]: Password1!
-            - button "Show" [ref=e61] [cursor=pointer]:
-              - img [ref=e62]
-        - generic [ref=e64]:
-          - generic [ref=e65]: Confirm password
-          - generic [ref=e66]:
-            - img [ref=e68]
-            - textbox "Repeat password" [ref=e70]: Password1!
-        - button "Create account" [ref=e71] [cursor=pointer]
-        - generic [ref=e72]:
+          - generic [ref=e44]: Email address
+          - generic [ref=e45]:
+            - img [ref=e47]
+            - textbox "you@company.com" [ref=e49]
+        - generic [ref=e50]:
+          - generic [ref=e51]: Password
+          - generic [ref=e52]:
+            - img [ref=e54]
+            - textbox "Min. 8 characters" [ref=e56]
+            - button "Show" [ref=e57] [cursor=pointer]:
+              - img [ref=e58]
+        - generic [ref=e60]:
+          - generic [ref=e61]: Confirm password
+          - generic [ref=e62]:
+            - img [ref=e64]
+            - textbox "Repeat password" [ref=e66]
+        - button "Create account" [ref=e67] [cursor=pointer]
+        - generic [ref=e68]:
           - text: Already have an account?
-          - button "Sign in" [ref=e73] [cursor=pointer]
-      - generic [ref=e74]: By continuing you agree to our Terms of Service and Privacy Policy.
+          - button "Sign in" [ref=e69] [cursor=pointer]
+      - generic [ref=e70]: By continuing you agree to our Terms of Service and Privacy Policy.
 ```

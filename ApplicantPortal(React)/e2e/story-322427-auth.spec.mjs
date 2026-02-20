@@ -68,7 +68,8 @@ test.describe("US-322427 Applicant registration (implemented behaviors)", () => 
     );
 
     await page.goto("/login?mode=signup");
-    await expect(page.getByText("Create account", { exact: true })).toBeVisible();
+    // Use an unambiguous, accessible locator (strict-mode safe).
+    await expect(page.getByRole("button", { name: "Create account" })).toBeVisible();
 
     // Fill signup form
     await page.getByPlaceholder("you@company.com").fill(uniqueEmail());

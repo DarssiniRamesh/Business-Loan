@@ -14,9 +14,10 @@ test.describe("ApplicantPortal public pages", () => {
 
     await expect(page).toHaveTitle(/Business/i);
 
-    // Brand + context
-    await expect(page.getByText("BusinessLoan", { exact: true })).toBeVisible();
-    await expect(page.getByText("Applicant Portal", { exact: true })).toBeVisible();
+    // Brand + context (scope to header to avoid strict-mode collisions with footer)
+    const banner = page.getByRole("banner");
+    await expect(banner.getByText("BusinessLoan", { exact: true })).toBeVisible();
+    await expect(banner.getByText("Applicant Portal", { exact: true })).toBeVisible();
 
     // Hero headline (stable text)
     await expect(page.getByRole("heading", { name: /Fund Your Business Growth/i })).toBeVisible();
@@ -30,14 +31,16 @@ test.describe("ApplicantPortal public pages", () => {
   test("Navbar actions navigate to Login and Signup", async ({ page }) => {
     await page.goto("/");
 
-    // Login
-    await page.getByRole("link", { name: "Login" }).click();
-    await expect(page).toHaveURL(/\/login$/);
+    const banner = page.getByRole("banner");
 
-    // Back to landing then to signup via Get Started
+    // Login (navbar)
+    await banner.getByRole("link", { name: "Login", exact: true }).click();
+    await expect(page).toHaveURL(/\/login(\?.*)?$/);
+
+    // Back to landing then to signup via Get Started (navbar)
     await page.goto("/");
-    await page.getByRole("link", { name: /Get Started/i }).click();
-    await expect(page).toHaveURL(/\/signup$/);
+    await banner.getByRole("link", { name: "Get Started", exact: true }).click();
+    await expect(page).toHaveURL(/\/signup(\?.*)?$/);
   });
 
   test("Unknown route falls back to landing page", async ({ page }) => {
@@ -51,7 +54,7 @@ test.describe("ApplicantPortal public pages", () => {
   test("/app redirects to /login when not authenticated", async ({ page }) => {
     await page.goto("/app");
 
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login(\?.*)?$/);
     // Login page should have a clear heading/label; keep assertion flexible.
     await expect(page.getByText(/login/i)).toBeVisible();
   });

@@ -1,0 +1,188 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "BusinessLoan Applicant Portal" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img [ref=e8]
+        - generic [ref=e10]:
+          - generic [ref=e11]: BusinessLoan
+          - generic [ref=e12]: Applicant Portal
+      - navigation [ref=e13]:
+        - link "How it Works" [ref=e14] [cursor=pointer]:
+          - /url: "#how-it-works"
+        - link "Rates" [ref=e15] [cursor=pointer]:
+          - /url: "#rates"
+        - link "FAQ" [ref=e16] [cursor=pointer]:
+          - /url: "#faq"
+      - generic [ref=e17]:
+        - link "Login" [ref=e18] [cursor=pointer]:
+          - /url: /login
+        - link "Get Started" [ref=e19] [cursor=pointer]:
+          - /url: /signup
+          - text: Get Started
+          - img [ref=e20]
+  - main [ref=e22]:
+    - generic [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - heading "Fund Your Business Growth in Minutes" [level=1] [ref=e26]
+          - paragraph [ref=e27]: "A modern applicant experience built for trust and speed: secure onboarding, guided data entry, and fast decisions with transparent terms."
+          - generic [ref=e28]:
+            - link "Check Eligibility" [ref=e30] [cursor=pointer]:
+              - /url: /signup
+              - text: Check Eligibility
+              - img [ref=e31]
+            - generic [ref=e33]:
+              - img [ref=e34]
+              - text: Bank-grade security. No impact to credit score.
+          - generic [ref=e36]:
+            - generic [ref=e37]:
+              - generic [ref=e38]: Apply
+              - generic [ref=e39]: Guided steps in minutes.
+            - generic [ref=e40]:
+              - generic [ref=e41]: Verify
+              - generic [ref=e42]: Secure document upload.
+            - generic [ref=e43]:
+              - generic [ref=e44]: Decide
+              - generic [ref=e45]: Fast eligibility outcome.
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - generic [ref=e52]: Projected Cashflow
+            - generic [ref=e53]: 12 mo
+          - generic [ref=e59]:
+            - generic [ref=e60]:
+              - generic [ref=e61]: Funding
+              - generic [ref=e62]: $50M+
+            - generic [ref=e63]:
+              - generic [ref=e64]: Avg Decision
+              - generic [ref=e65]: < 5 min
+          - generic [ref=e66]:
+            - generic [ref=e67]:
+              - img [ref=e68]
+              - text: Secure, encrypted submissions
+            - generic [ref=e70]: Built for financial trust and compliance-ready workflows.
+      - generic [ref=e72]:
+        - generic [ref=e73]:
+          - heading "Transparent rates and terms" [level=2] [ref=e74]
+          - paragraph [ref=e75]: Clear, upfront pricing with no confusing surprises. Terms vary by eligibility and business profile.
+        - generic [ref=e76]:
+          - generic [ref=e77]:
+            - generic [ref=e78]: APR Range
+            - generic [ref=e79]: 8% – 24%
+          - generic [ref=e80]:
+            - generic [ref=e81]: Funding Speed
+            - generic [ref=e82]: As fast as 1–2 days
+          - generic [ref=e83]:
+            - generic [ref=e84]: Loan Amounts
+            - generic [ref=e85]: $10k – $500k
+    - generic [ref=e87]:
+      - generic [ref=e88]:
+        - heading "Built for speed, clarity, and trust" [level=2] [ref=e89]
+        - paragraph [ref=e90]: A modern workflow for applicants—with careful attention to security, usability, and accessibility.
+      - generic [ref=e91]:
+        - generic [ref=e92]:
+          - generic [ref=e93]:
+            - img [ref=e95]
+            - generic [ref=e97]: Bank-Grade Security
+          - paragraph [ref=e98]: Encrypted data flows, least-privilege access, and audit-friendly design.
+          - link "Get started" [ref=e100] [cursor=pointer]:
+            - /url: /signup
+            - text: Get started →
+        - generic [ref=e101]:
+          - generic [ref=e102]:
+            - img [ref=e104]
+            - generic [ref=e106]: Instant Decisions
+          - paragraph [ref=e107]: Fast eligibility outcomes to keep your business moving forward.
+          - link "Get started" [ref=e109] [cursor=pointer]:
+            - /url: /signup
+            - text: Get started →
+        - generic [ref=e110]:
+          - generic [ref=e111]:
+            - img [ref=e113]
+            - generic [ref=e115]: Transparent Rates
+          - paragraph [ref=e116]: Clear pricing and terms designed for clarity and trust.
+          - link "Get started" [ref=e118] [cursor=pointer]:
+            - /url: /signup
+            - text: Get started →
+    - generic [ref=e120]:
+      - generic [ref=e121]:
+        - generic [ref=e122]:
+          - generic [ref=e123]: Trusted by growing businesses
+          - generic [ref=e124]: Secure funding workflows designed for financial confidence.
+        - generic [ref=e125]:
+          - generic [ref=e126]:
+            - generic [ref=e127]: $50M+
+            - generic [ref=e128]: Funded
+          - generic [ref=e129]:
+            - generic [ref=e130]: "&lt; 5 min"
+            - generic [ref=e131]: Avg decision
+          - generic [ref=e132]:
+            - generic [ref=e133]: TLS 1.3
+            - generic [ref=e134]: In transit
+      - generic [ref=e135]:
+        - generic [ref=e136]: Partner A
+        - generic [ref=e137]: Partner B
+        - generic [ref=e138]: Partner C
+        - generic [ref=e139]: Partner D
+        - generic [ref=e140]: Partner E
+    - generic [ref=e142]:
+      - generic [ref=e143]:
+        - heading "Frequently asked questions" [level=2] [ref=e144]
+        - paragraph [ref=e145]: Quick answers to common questions about applying and security.
+      - generic [ref=e146]:
+        - generic [ref=e147]:
+          - generic [ref=e148]: Will this impact my credit score?
+          - generic [ref=e149]: Checking eligibility is designed to be low-impact. Final underwriting may require additional verification.
+        - generic [ref=e150]:
+          - generic [ref=e151]: What documents do I need?
+          - generic [ref=e152]: Common requirements include bank statements and tax returns (PDF/JPG/PNG).
+        - generic [ref=e153]:
+          - generic [ref=e154]: How is my data protected?
+          - generic [ref=e155]: We use encrypted connections (TLS), secure storage practices, and token-based authentication.
+  - contentinfo [ref=e156]:
+    - generic [ref=e157]:
+      - generic [ref=e158]:
+        - generic [ref=e159]:
+          - generic [ref=e160]:
+            - img [ref=e162]
+            - generic [ref=e164]: BusinessLoan
+          - paragraph [ref=e165]: A secure, modern applicant portal for business financing.
+        - generic [ref=e166]:
+          - generic [ref=e167]: Product
+          - list [ref=e168]:
+            - listitem [ref=e169]:
+              - link "How it Works" [ref=e170] [cursor=pointer]:
+                - /url: "#how-it-works"
+            - listitem [ref=e171]:
+              - link "Rates" [ref=e172] [cursor=pointer]:
+                - /url: "#rates"
+            - listitem [ref=e173]:
+              - link "FAQ" [ref=e174] [cursor=pointer]:
+                - /url: "#faq"
+        - generic [ref=e175]:
+          - generic [ref=e176]: Company
+          - list [ref=e177]:
+            - listitem [ref=e178]:
+              - link "Support" [ref=e179] [cursor=pointer]:
+                - /url: "#faq"
+            - listitem [ref=e180]:
+              - link "Security" [ref=e181] [cursor=pointer]:
+                - /url: "#faq"
+            - listitem [ref=e182]:
+              - link "Compliance" [ref=e183] [cursor=pointer]:
+                - /url: "#faq"
+        - generic [ref=e184]:
+          - generic [ref=e185]: Legal
+          - list [ref=e186]:
+            - listitem [ref=e187]: Terms
+            - listitem [ref=e188]: Privacy
+            - listitem [ref=e189]: Disclosures
+      - generic [ref=e190]:
+        - text: © 2026 BusinessLoan Applicant Portal. All rights reserved.
+        - generic [ref=e191]: "Disclaimer: This is an MVP experience; terms and eligibility vary by applicant and verification results."
+        - link "Backend API Docs (/v3/api-docs)" [ref=e193] [cursor=pointer]:
+          - /url: https://vscode-internal-20708-beta.beta01.cloud.kavia.ai:3003/v3/api-docs
+```

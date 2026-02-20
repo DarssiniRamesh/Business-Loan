@@ -33,14 +33,20 @@ describe("ApplicantPortal public pages", () => {
   it("Navbar actions navigate to Login and Signup", () => {
     cy.visit("/");
 
-    // Login CTA in navbar
-    cy.get('header a[href="/login"]').contains(/^Login$/).click();
-    cy.location("pathname").should("eq", "/login");
+    // Current header uses a single combined action button.
+    // Make selection unambiguous by targeting the button within the header nav.
+    cy.get("header nav")
+      .find("button")
+      .contains(/^Login\s*\/\s*Signup$/i)
+      .should("be.visible")
+      .click();
 
-    // Back to landing then to signup via Get Started (navbar)
-    cy.visit("/");
-    cy.get('header a[href="/signup"]').contains(/Get Started/i).click();
-    cy.location("pathname").should("eq", "/signup");
+    // The app implements signup as a mode of the /login page.
+    cy.location("pathname").should("eq", "/login");
+    cy.location("search").should("contain", "mode=signup");
+
+    // Also validate that the auth UI is present without relying on arbitrary timeouts.
+    cy.contains(/welcome back|create account/i).should("be.visible");
   });
 
   it("Unknown route falls back to landing page", () => {

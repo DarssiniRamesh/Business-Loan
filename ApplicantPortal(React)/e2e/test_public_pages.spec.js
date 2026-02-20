@@ -40,7 +40,8 @@ test.describe("ApplicantPortal public pages", () => {
     // Back to landing then to signup via Get Started (navbar)
     await page.goto("/");
     await banner.getByRole("link", { name: "Get Started", exact: true }).click();
-    await expect(page).toHaveURL(/\/signup(\?.*)?$/);
+    // App routes signup through login with a mode query param.
+    await expect(page).toHaveURL(/\/login\?mode=signup(&.*)?$/);
   });
 
   test("Unknown route falls back to landing page", async ({ page }) => {

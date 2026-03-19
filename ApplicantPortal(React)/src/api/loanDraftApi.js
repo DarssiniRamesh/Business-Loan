@@ -65,7 +65,7 @@ export async function patchDraftSection({
   const res = await apiClient.patch(`/loan/drafts/${draftId}/sections`, {
     sectionKey,
     sectionData: toJsonString(sectionData, "{}"),
-    sectionStatus: sectionStatus !== undefined ? toJsonString(sectionStatus, "{}") : undefined,
+    sectionStatus: sectionStatus === undefined ? undefined : toJsonString(sectionStatus, "{}"),
     currentStep,
     expectedVersion,
   });

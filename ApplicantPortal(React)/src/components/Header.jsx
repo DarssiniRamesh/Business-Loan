@@ -1,7 +1,7 @@
-import React from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBuildingColumns, faUser, faSignInAlt } from '@fortawesome/free-solid-svg-icons';
-import './Header.css';
+import React from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faBuildingColumns, faSignInAlt } from "@fortawesome/free-solid-svg-icons";
+import "./Header.css";
 
 // PUBLIC_INTERFACE
 export default function Header({ onLoginClick }) {
@@ -13,8 +13,12 @@ export default function Header({ onLoginClick }) {
         <span className="header__title">BusinessLoan Portal</span>
       </div>
       <nav className="header__nav">
-        <a href="#features" className="header__navlink">Features</a>
-        <a href="#about" className="header__navlink">About</a>
+        <a href="#features" className="header__navlink">
+          Features
+        </a>
+        <a href="#about" className="header__navlink">
+          About
+        </a>
         <button onClick={onLoginClick} className="header__loginbtn">
           <FontAwesomeIcon icon={faSignInAlt} />
           Login / Signup

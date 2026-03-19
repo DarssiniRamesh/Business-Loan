@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -15,6 +15,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { loginStep1, registerApplicant } from "../api/authApi";
 import { getAccessToken } from "../api/tokenStorage";
+import { getEmailError, isValidEmail } from "../utils/validation";
 
 function useQueryMode(defaultMode = "login") {
   const location = useLocation();
@@ -40,17 +41,21 @@ export default function Login() {
   // If already authenticated, go straight to app
   useMemo(() => {
     if (getAccessToken()) navigate(nextPath, { replace: true });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #1e3a5f 100%)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "'Inter', system-ui, sans-serif",
-      padding: "24px",
-    }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #1e3a5f 100%)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "'Inter', system-ui, sans-serif",
+        padding: "24px",
+      }}
+    >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         * { box-sizing: border-box; }
@@ -152,23 +157,45 @@ export default function Login() {
         <div className="auth-left">
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 40 }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: 10,
-                background: "linear-gradient(135deg,#2563eb,#1d4ed8)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: "#fff", fontSize: 16,
-                boxShadow: "0 4px 16px rgba(37,99,235,.4)",
-              }}>
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: "linear-gradient(135deg,#2563eb,#1d4ed8)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#fff",
+                  fontSize: 16,
+                  boxShadow: "0 4px 16px rgba(37,99,235,.4)",
+                }}
+              >
                 <FontAwesomeIcon icon={faBuildingColumns} />
               </div>
               <div>
-                <div style={{ color: "#fff", fontSize: 16, fontWeight: 800, letterSpacing: "-.02em" }}>LoanPortal</div>
-                <div style={{ color: "rgba(255,255,255,.55)", fontSize: 11.5, fontWeight: 500 }}>Business Finance</div>
+                <div style={{ color: "#fff", fontSize: 16, fontWeight: 800, letterSpacing: "-.02em" }}>
+                  LoanPortal
+                </div>
+                <div style={{ color: "rgba(255,255,255,.55)", fontSize: 11.5, fontWeight: 500 }}>
+                  Business Finance
+                </div>
               </div>
             </div>
 
-            <h1 style={{ color: "#fff", fontSize: 26, fontWeight: 800, letterSpacing: "-.025em", lineHeight: 1.25, marginBottom: 14 }}>
-              Secure funding workflows,<br />built for confidence.
+            <h1
+              style={{
+                color: "#fff",
+                fontSize: 26,
+                fontWeight: 800,
+                letterSpacing: "-.025em",
+                lineHeight: 1.25,
+                marginBottom: 14,
+              }}
+            >
+              Secure funding workflows,
+              <br />
+              built for confidence.
             </h1>
             <p style={{ color: "rgba(255,255,255,.6)", fontSize: 13.5, lineHeight: 1.7, marginBottom: 32 }}>
               Sign in to continue your application, upload documents, and track your status in real time.
@@ -178,18 +205,33 @@ export default function Login() {
               { icon: faShieldHalved, title: "Bank-grade security", desc: "JWT-authenticated, encrypted connections." },
               { icon: faLock, title: "Privacy-first design", desc: "Built for financial compliance and trust." },
             ].map((b) => (
-              <div key={b.title} style={{
-                display: "flex", alignItems: "center", gap: 12,
-                padding: "14px 16px", borderRadius: 12,
-                background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.08)",
-                marginBottom: 10,
-              }}>
-                <div style={{
-                  width: 38, height: 38, borderRadius: 9, flexShrink: 0,
-                  background: "rgba(37,99,235,.25)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  color: "#93c5fd", fontSize: 14,
-                }}>
+              <div
+                key={b.title}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  background: "rgba(255,255,255,.06)",
+                  border: "1px solid rgba(255,255,255,.08)",
+                  marginBottom: 10,
+                }}
+              >
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 9,
+                    flexShrink: 0,
+                    background: "rgba(37,99,235,.25)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#93c5fd",
+                    fontSize: 14,
+                  }}
+                >
                   <FontAwesomeIcon icon={b.icon} />
                 </div>
                 <div>
@@ -218,8 +260,12 @@ export default function Login() {
                 </div>
               </div>
               <div className="mode-toggle">
-                <button className={`mode-btn ${mode === "login" ? "active" : ""}`} onClick={() => setMode("login")}>Login</button>
-                <button className={`mode-btn ${mode === "signup" ? "active" : ""}`} onClick={() => setMode("signup")}>Sign up</button>
+                <button className={`mode-btn ${mode === "login" ? "active" : ""}`} onClick={() => setMode("login")}>
+                  Login
+                </button>
+                <button className={`mode-btn ${mode === "signup" ? "active" : ""}`} onClick={() => setMode("signup")}>
+                  Sign up
+                </button>
               </div>
             </div>
           </div>
@@ -234,10 +280,7 @@ export default function Login() {
                   exit={{ opacity: 0, x: -16 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <LoginForm
-                    onSuccess={() => navigate(nextPath, { replace: true })}
-                    onSwitchToSignup={() => setMode("signup")}
-                  />
+                  <LoginForm onSuccess={() => navigate(nextPath, { replace: true })} onSwitchToSignup={() => setMode("signup")} />
                 </motion.div>
               ) : (
                 <motion.div
@@ -247,10 +290,7 @@ export default function Login() {
                   exit={{ opacity: 0, x: -16 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <SignupForm
-                    onSuccess={() => setMode("login")}
-                    onSwitchToLogin={() => setMode("login")}
-                  />
+                  <SignupForm onSuccess={() => setMode("login")} onSwitchToLogin={() => setMode("login")} />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -271,14 +311,10 @@ function Field({ label, icon, type = "text", value, onChange, error, right, auto
     <div className="inp-wrap">
       <div className="inp-lbl">{label}</div>
       <div className={`inp-row ${error ? "err" : ""}`}>
-        <span className={`inp-icon ${error ? "err" : ""}`}><FontAwesomeIcon icon={icon} /></span>
-        <input
-          type={type}
-          value={value}
-          onChange={onChange}
-          autoComplete={autoComplete}
-          placeholder={placeholder || label}
-        />
+        <span className={`inp-icon ${error ? "err" : ""}`}>
+          <FontAwesomeIcon icon={icon} />
+        </span>
+        <input type={type} value={value} onChange={onChange} autoComplete={autoComplete} placeholder={placeholder || label} />
         {right}
       </div>
       {error && (
@@ -293,18 +329,25 @@ function Field({ label, icon, type = "text", value, onChange, error, right, auto
 
 /* ── Login form ── */
 function LoginForm({ onSuccess, onSwitchToSignup }) {
-  const [email, setEmail]       = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPw, setShowPw]     = useState(false);
-  const [touched, setTouched]   = useState({ email: false, password: false });
-  const [busy, setBusy]         = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const [touched, setTouched] = useState({ email: false, password: false });
+  const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
 
-  const emailErr = touched.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-    ? "Enter a valid email address." : "";
-  const pwErr = touched.password && password.length < 8
-    ? "Password must be at least 8 characters." : "";
-  const canSubmit = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && password.length >= 8;
+  // REQ: A1 - Replace email regex hotspot with bounded, non-regex validation helper.
+  const emailErr = getEmailError(email, touched.email);
+  const pwErr = touched.password && password.length < 8 ? "Password must be at least 8 characters." : "";
+  const canSubmit = isValidEmail(email) && password.length >= 8;
+
+  function mapLoginErrorToMessage(err) {
+    const status = err?.response?.status;
+    if (status === 401) return "Invalid email or password.";
+    if (status === 403) return "Account is not authorized.";
+    if (status === 429) return "Too many attempts — please wait a moment and try again.";
+    return err?.response?.data?.message || err?.message || "Login failed. Please try again.";
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -318,8 +361,6 @@ function LoginForm({ onSuccess, onSwitchToSignup }) {
       await loginStep1({ email, password });
 
       // Critical: verify token was actually stored before navigating.
-      // This catches cases where backend returns an unexpected shape
-      // and extractTokens() failed to parse it.
       const stored = getAccessToken();
       if (!stored) {
         setFormError("Login succeeded but no auth token was received. Please contact support.");
@@ -328,12 +369,7 @@ function LoginForm({ onSuccess, onSwitchToSignup }) {
 
       onSuccess?.();
     } catch (err) {
-      const status = err?.response?.status;
-      const msg = status === 401 ? "Invalid email or password."
-        : status === 403 ? "Account is not authorized."
-        : status === 429 ? "Too many attempts — please wait a moment and try again."
-        : err?.response?.data?.message || err?.message || "Login failed. Please try again.";
-      setFormError(msg);
+      setFormError(mapLoginErrorToMessage(err));
     } finally {
       setBusy(false);
     }
@@ -353,7 +389,10 @@ function LoginForm({ onSuccess, onSwitchToSignup }) {
         icon={faEnvelope}
         type="email"
         value={email}
-        onChange={(e) => { setEmail(e.target.value); setTouched((t) => ({ ...t, email: true })); }}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          setTouched((t) => ({ ...t, email: true }));
+        }}
         error={emailErr}
         autoComplete="email"
         placeholder="you@company.com"
@@ -364,7 +403,10 @@ function LoginForm({ onSuccess, onSwitchToSignup }) {
         icon={faLock}
         type={showPw ? "text" : "password"}
         value={password}
-        onChange={(e) => { setPassword(e.target.value); setTouched((t) => ({ ...t, password: true })); }}
+        onChange={(e) => {
+          setPassword(e.target.value);
+          setTouched((t) => ({ ...t, password: true }));
+        }}
         error={pwErr}
         autoComplete="current-password"
         placeholder="••••••••"
@@ -381,7 +423,13 @@ function LoginForm({ onSuccess, onSwitchToSignup }) {
       />
 
       <button type="submit" className="submit-btn" disabled={busy}>
-        {busy ? <><FontAwesomeIcon icon={faSpinner} className="spin" /> Signing in…</> : "Sign in"}
+        {busy ? (
+          <>
+            <FontAwesomeIcon icon={faSpinner} className="spin" /> Signing in…
+          </>
+        ) : (
+          "Sign in"
+        )}
       </button>
 
       <div style={{ textAlign: "center", fontSize: 13.5, color: "#64748b", marginTop: 20 }}>
@@ -396,23 +444,31 @@ function LoginForm({ onSuccess, onSwitchToSignup }) {
 
 /* ── Signup form ── */
 function SignupForm({ onSuccess, onSwitchToLogin }) {
-  const [email, setEmail]       = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm]   = useState("");
-  const [showPw, setShowPw]     = useState(false);
-  const [touched, setTouched]   = useState({ email: false, password: false, confirm: false });
-  const [busy, setBusy]         = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [touched, setTouched] = useState({ email: false, password: false, confirm: false });
+  const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
-  const [okMsg, setOkMsg]         = useState("");
+  const [okMsg, setOkMsg] = useState("");
 
-  const emailErr = touched.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? "Enter a valid email." : "";
-  const pwErr    = touched.password && password.length < 8 ? "At least 8 characters required." : "";
-  const confErr  = touched.confirm && confirm !== password ? "Passwords do not match." : "";
-  const canSubmit = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && password.length >= 8 && confirm === password;
+  // REQ: A1 - Replace email regex hotspot with bounded, non-regex validation helper.
+  const emailErr = touched.email && !isValidEmail(email) ? "Enter a valid email." : "";
+  const pwErr = touched.password && password.length < 8 ? "At least 8 characters required." : "";
+  const confErr = touched.confirm && confirm !== password ? "Passwords do not match." : "";
+  const canSubmit = isValidEmail(email) && password.length >= 8 && confirm === password;
+
+  function mapSignupErrorToMessage(err) {
+    const status = err?.response?.status;
+    if (status === 409) return "An account with this email already exists.";
+    return err?.response?.data?.message || err?.message || "Signup failed. Please try again.";
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setFormError(""); setOkMsg("");
+    setFormError("");
+    setOkMsg("");
     setTouched({ email: true, password: true, confirm: true });
     if (!canSubmit) return;
 
@@ -422,10 +478,7 @@ function SignupForm({ onSuccess, onSwitchToLogin }) {
       setOkMsg("Account created! Please sign in.");
       onSuccess?.();
     } catch (err) {
-      const status = err?.response?.status;
-      const msg = status === 409 ? "An account with this email already exists."
-        : err?.response?.data?.message || err?.message || "Signup failed. Please try again.";
-      setFormError(msg);
+      setFormError(mapSignupErrorToMessage(err));
     } finally {
       setBusy(false);
     }
@@ -451,7 +504,10 @@ function SignupForm({ onSuccess, onSwitchToLogin }) {
         icon={faEnvelope}
         type="email"
         value={email}
-        onChange={(e) => { setEmail(e.target.value); setTouched((t) => ({ ...t, email: true })); }}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          setTouched((t) => ({ ...t, email: true }));
+        }}
         error={emailErr}
         autoComplete="email"
         placeholder="you@company.com"
@@ -462,7 +518,10 @@ function SignupForm({ onSuccess, onSwitchToLogin }) {
         icon={faLock}
         type={showPw ? "text" : "password"}
         value={password}
-        onChange={(e) => { setPassword(e.target.value); setTouched((t) => ({ ...t, password: true })); }}
+        onChange={(e) => {
+          setPassword(e.target.value);
+          setTouched((t) => ({ ...t, password: true }));
+        }}
         error={pwErr}
         autoComplete="new-password"
         placeholder="Min. 8 characters"
@@ -483,19 +542,30 @@ function SignupForm({ onSuccess, onSwitchToLogin }) {
         icon={faLock}
         type={showPw ? "text" : "password"}
         value={confirm}
-        onChange={(e) => { setConfirm(e.target.value); setTouched((t) => ({ ...t, confirm: true })); }}
+        onChange={(e) => {
+          setConfirm(e.target.value);
+          setTouched((t) => ({ ...t, confirm: true }));
+        }}
         error={confErr}
         autoComplete="new-password"
         placeholder="Repeat password"
       />
 
       <button type="submit" className="submit-btn" disabled={busy}>
-        {busy ? <><FontAwesomeIcon icon={faSpinner} className="spin" /> Creating account…</> : "Create account"}
+        {busy ? (
+          <>
+            <FontAwesomeIcon icon={faSpinner} className="spin" /> Creating account…
+          </>
+        ) : (
+          "Create account"
+        )}
       </button>
 
       <div style={{ textAlign: "center", fontSize: 13.5, color: "#64748b", marginTop: 20 }}>
         Already have an account?{" "}
-        <button type="button" className="switch-link" onClick={onSwitchToLogin}>Sign in</button>
+        <button type="button" className="switch-link" onClick={onSwitchToLogin}>
+          Sign in
+        </button>
       </div>
     </form>
   );

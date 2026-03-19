@@ -1,77 +1,91 @@
+import { trimTrailingChar } from "./utils/stringUtils";
+
 const DEFAULT_LOCAL_API_BASE = "http://localhost:8080/api";
 const DEFAULT_KAVIA_PROXY_BACKEND_PATH = "/proxy/3010";
 
-function stripTrailingSlashes(value) {
-  return String(value || "").replace(/\/+$/, "");
+/**
+ * Determine if we are running inside Kavia preview environment.
+ */
+function isKaviaPreviewHost(win) {
+  const w = win ?? globalThis?.window;
+  if (!w) return false;
+  const hostname = w.location?.hostname || "";
+  return hostname.includes("vscode-internal") && hostname.includes("cloud.kavia.ai");
 }
 
-function ensureApiSuffix(baseUrl) {
-  const base = stripTrailingSlashes(baseUrl);
-  if (base.endsWith("/api") || base.endsWith("/api/v1")) return base;
-  return `${base}/api`;
-}
-
-function isKaviaPreviewHost() {
-  if (typeof window === "undefined") return false;
-  const h = window.location?.hostname || "";
-  return h.includes("vscode-internal") && h.includes("cloud.kavia.ai");
-}
-
-function getKaviaPreviewPublicOrigin() {
-  if (typeof window === "undefined") return "";
-  return `${window.location.protocol}//${window.location.hostname}`;
+function getKaviaPreviewPublicOrigin(win) {
+  const w = win ?? globalThis?.window;
+  if (!w) return "";
+  return `${w.location.protocol}//${w.location.hostname}`;
 }
 
 function looksLikeKaviaProxyUrl(url) {
   return String(url || "").includes("/proxy/");
 }
 
-function normalizeEnvBaseUrl(rawValue) {
-  const raw = stripTrailingSlashes(rawValue);
+/**
+ * Ensure the returned base URL ends with `/api` (or `/api/v1`).
+ */
+function ensureApiSuffix(baseUrl) {
+  const base = trimTrailingChar(baseUrl, "/");
+  if (base.endsWith("/api") || base.endsWith("/api/v1")) return base;
+  return `${base}/api`;
+}
+
+function normalizeEnvBaseUrl(rawValue, win) {
+  const raw = trimTrailingChar(rawValue, "/");
   if (!raw) return "";
 
   const isAbsoluteHttp = /^https?:\/\//i.test(raw);
 
   if (isAbsoluteHttp) {
-    if (isKaviaPreviewHost() && typeof window !== "undefined") {
+    if (isKaviaPreviewHost(win)) {
       try {
+        const w = win ?? globalThis?.window;
         const u = new URL(raw);
-        if (u.hostname === window.location.hostname && u.port === window.location.port) {
+        if (w && u.hostname === w.location.hostname && u.port === w.location.port) {
           u.port = "";
-          return stripTrailingSlashes(u.toString());
+          return trimTrailingChar(u.toString(), "/");
         }
       } catch {
-        // ignore
+        // ignore parsing issues; fall back to raw below
       }
     }
     return raw;
   }
 
+  // Path-like values: "/proxy/3010" or "/proxy/3010/api"
   if (raw.startsWith("/")) {
-    if (typeof window === "undefined") return raw;
-    const origin = isKaviaPreviewHost() ? getKaviaPreviewPublicOrigin() : window.location.origin;
+    const w = win ?? globalThis?.window;
+    if (!w) return raw;
+    const origin = isKaviaPreviewHost(w) ? getKaviaPreviewPublicOrigin(w) : w.location.origin;
     return `${origin}${raw}`;
   }
 
+  // Convenience: allow "proxy/3010"
   if (raw.startsWith("proxy/")) {
-    return normalizeEnvBaseUrl(`/${raw}`);
+    return normalizeEnvBaseUrl(`/${raw}`, win);
   }
 
   return raw;
 }
 
-function resolveBaseApiUrl() {
-  const rawFromEnv =
+function getEnvApiBaseValue() {
+  return (
     process.env.REACT_APP_API_BASE ||
     process.env.REACT_APP_API_BASE_URL ||
-    process.env.REACT_APP_BACKEND_URL;
+    process.env.REACT_APP_BACKEND_URL ||
+    ""
+  );
+}
 
-  const fromEnv = normalizeEnvBaseUrl(rawFromEnv);
+function resolveBaseApiUrl(win) {
+  const fromEnv = normalizeEnvBaseUrl(getEnvApiBaseValue(), win);
 
-  if (isKaviaPreviewHost()) {
+  if (isKaviaPreviewHost(win)) {
     const shouldOverride = !fromEnv || !looksLikeKaviaProxyUrl(fromEnv);
     if (shouldOverride) {
-      return ensureApiSuffix(`${getKaviaPreviewPublicOrigin()}${DEFAULT_KAVIA_PROXY_BACKEND_PATH}`);
+      return ensureApiSuffix(`${getKaviaPreviewPublicOrigin(win)}${DEFAULT_KAVIA_PROXY_BACKEND_PATH}`);
     }
   }
 
@@ -98,7 +112,7 @@ export async function login(email, password) {
   const data = await res.json();
 
   // Legacy helper: if backend returns a token field, store it for older UI flows.
-  if (data && data.token) {
+  if (data?.token) {
     try {
       localStorage.setItem("authToken", data.token);
     } catch {

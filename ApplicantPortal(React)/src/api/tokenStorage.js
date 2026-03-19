@@ -1,3 +1,5 @@
+import { stripBearerPrefix } from "../utils/stringUtils";
+
 const ACCESS_TOKEN_KEY = "accessToken";
 const REFRESH_TOKEN_KEY = "refreshToken";
 
@@ -18,10 +20,9 @@ function normalizeStoredToken(value) {
  * Some callers may have accidentally stored "Bearer <token>".
  * We store raw token only; axios will add "Bearer " when sending.
  */
-function stripBearerPrefix(token) {
+function normalizeToken(token) {
   const t = normalizeStoredToken(token);
-  if (!t) return null;
-  return t.replace(/^Bearer\s+/i, "").trim() || null;
+  return stripBearerPrefix(t);
 }
 
 /**
@@ -31,11 +32,11 @@ function stripBearerPrefix(token) {
  */
 export function getAccessToken() {
   try {
-    const primary = stripBearerPrefix(localStorage.getItem(ACCESS_TOKEN_KEY));
+    const primary = normalizeToken(localStorage.getItem(ACCESS_TOKEN_KEY));
     if (primary) return primary;
 
     // Backwards compatible fallback: migrate from legacy key if present.
-    const legacy = stripBearerPrefix(localStorage.getItem(LEGACY_ACCESS_TOKEN_KEY));
+    const legacy = normalizeToken(localStorage.getItem(LEGACY_ACCESS_TOKEN_KEY));
     if (legacy) {
       localStorage.setItem(ACCESS_TOKEN_KEY, legacy);
       // Keep legacy key for now (do not remove) to avoid breaking older code paths.
@@ -54,7 +55,7 @@ export function getAccessToken() {
  */
 export function getRefreshToken() {
   try {
-    return stripBearerPrefix(localStorage.getItem(REFRESH_TOKEN_KEY));
+    return normalizeToken(localStorage.getItem(REFRESH_TOKEN_KEY));
   } catch {
     return null;
   }
@@ -66,8 +67,8 @@ export function getRefreshToken() {
  */
 export function setTokens({ accessToken, refreshToken }) {
   try {
-    const a = stripBearerPrefix(accessToken);
-    const r = stripBearerPrefix(refreshToken);
+    const a = normalizeToken(accessToken);
+    const r = normalizeToken(refreshToken);
 
     if (a) {
       localStorage.setItem(ACCESS_TOKEN_KEY, a);

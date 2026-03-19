@@ -54,28 +54,67 @@ This document tracks SonarQube-driven remediation work for the **Business-Loan /
 
 ## Remaining / Pending Items (Needs verification)
 
-These were identified as common Sonar categories in the work item, but require a current Sonar run to confirm status after code changes:
+### Current SonarQube snapshot (evidence-based)
 
-1) **Cognitive complexity / nesting**
-   - `src/pages/ApplicantPortal.jsx` is very large and may still trigger cognitive complexity thresholds.
-   - If Sonar still flags complexity, next step should be a flow refactor:
-     - Extract panels into separate files (`DraftsPanel`, `DocumentsPanel`, `SubmitPanel`) and/or
-     - Extract reusable “flow helpers” (e.g., readiness parsing, API run wrappers).
+Pulled from SonarQube project key **`DarssiniRamesh_Business-Loan`**:
 
-2) **Unused imports / formatting**
-   - Needs a fresh Sonar/ESLint pass to confirm no remaining unused symbols.
+- **Open issues:** **147** (statuses: OPEN/CONFIRMED)  
+  Evidence: Sonar issue search paging total = 147.
+- **Security hotspots to review:** **7** (status: TO_REVIEW)
 
-3) **Negated conditions**
-   - There may still be occurrences that Sonar flags as readability issues.
-   - Recommend addressing only those that remain after the next Sonar pass to avoid churn.
+> Note: The raw issue list is large; this section lists the highest-impact items and recurring categories, with concrete Sonar issue keys for traceability.
 
-4) **throw vs Promise.reject**
-   - `src/api/axiosConfig.js` already uses `throw` at interceptor boundaries.
-   - Needs Sonar verification to confirm all instances conform.
+### Highest-impact open issues (examples with keys)
 
-5) **globalThis usage**
-   - `src/api/axiosConfig.js` and `src/components/Home.jsx` already use `globalThis?.window` guards.
-   - Needs Sonar verification to confirm rule compliance for the project configuration.
+#### A) Cognitive complexity / deep nesting (CRITICAL)
+- `src/api/axiosConfig.js`
+  - **AZ0E9_CAIpZiw5iiU39O** — `javascript:S3776` Cognitive Complexity 33 > 15 (line ~249)
+  - **AZ0E9_CAIpZiw5iiU39I** — `javascript:S3776` Cognitive Complexity 18 > 15 (line ~60)
+- `src/api.js`
+  - **AZ0E9_CQIpZiw5iiU39o** — `javascript:S3776` Cognitive Complexity 18 > 15 (line ~29)
+- `src/pages/ApplicantPortal.jsx`
+  - **AZ0E9_B3IpZiw5iiU375** — `javascript:S3776` Cognitive Complexity 20 > 15 (line ~405)
+  - **AZ0E9_B3IpZiw5iiU38v** — `javascript:S3776` Cognitive Complexity 23 > 15 (line ~1092)
+  - **AZ0E9_B3IpZiw5iiU374** — `javascript:S2004` nesting > 4 levels (line ~402)
+  - **AZ0E9_B3IpZiw5iiU37-** — `javascript:S2004` nesting > 4 levels (line ~491)
+  - **AZ0E9_B3IpZiw5iiU37_** — `javascript:S2004` nesting > 4 levels (line ~536)
+  - **AZ0E9_B3IpZiw5iiU38A** — `javascript:S2004` nesting > 4 levels (line ~545)
+
+#### B) Props validation missing (MAJOR) — large volume
+Recurring rule: `javascript:S6774` across multiple React components/pages:
+- `src/pages/ApplicantPortal.jsx` (many)
+- `src/pages/Login.jsx` (many)
+- `src/auth/RequireAuth.jsx` (**AZ0E9_CXIpZiw5iiU39v** — missing `children` validation)
+- `src/components/Header.jsx` (missing `onLoginClick` validation)
+- `src/components/Home.jsx` (missing `onGetStartedClick` validation)
+- `src/components/Login.jsx` / `src/components/Signup.jsx` (missing handler validations)
+
+#### C) Accessibility / form label association (MAJOR)
+Recurring rule: `javascript:S6853` in `src/pages/ApplicantPortal.jsx`:
+- **AZ0E9_B3IpZiw5iiU38Y**, **AZ0E9_B3IpZiw5iiU38Z**, **AZ0E9_B3IpZiw5iiU38a**, **AZ0E9_B3IpZiw5iiU38n**, **AZ0E9_B3IpZiw5iiU38p**, **AZ0E9_B3IpZiw5iiU388**, **AZ0E9_B3IpZiw5iiU389** (various lines ~919–1127)
+
+#### D) Error propagation style (MAJOR)
+Recurring rule: `javascript:S7746` in `src/api/axiosConfig.js`:
+- **AZ0E9_CAIpZiw5iiU39P**, **AZ0E9_CAIpZiw5iiU39g**, **AZ0E9_CAIpZiw5iiU39T**, **AZ0E9_CAIpZiw5iiU39Y**, **AZ0E9_CAIpZiw5iiU39c** (Prefer `throw error` vs `Promise.reject`)
+
+#### E) globalThis preference (MINOR)
+Recurring rule: `javascript:S7764` in:
+- `src/api/axiosConfig.js` (multiple keys e.g. **AZ0E9_CAIpZiw5iiU39d**, **AZ0E9_CAIpZiw5iiU39e**, **AZ0E9_CAIpZiw5iiU39f**…)
+- `src/api.js` (multiple keys e.g. **AZ0E9_CQIpZiw5iiU39l**, **AZ0E9_CQIpZiw5iiU39m**…)
+
+### Security hotspots (TO_REVIEW)
+
+Pulled from SonarQube hotspot search (status: TO_REVIEW):
+
+- `javascript:S5852` (Regex DoS / backtracking), vulnerabilityProbability=MEDIUM
+  - **AZ0E9_CQIpZiw5iiU39i** — `src/api.js` (line ~5)
+  - **AZ0E9_CAIpZiw5iiU39C** — `src/api/axiosConfig.js` (line ~11)
+  - **AZ0E9-_aIpZiw5iiU37s** — `src/pages/Login.jsx` (line ~303)
+  - **AZ0E9-_aIpZiw5iiU37t** — `src/pages/Login.jsx` (line ~307)
+  - **AZ0E9-_aIpZiw5iiU37y** — `src/pages/Login.jsx` (line ~408)
+  - **AZ0E9-_aIpZiw5iiU37z** — `src/pages/Login.jsx` (line ~411)
+- `Web:S5725` (Subresource Integrity), vulnerabilityProbability=LOW
+  - **AZ0E9_ChIpZiw5iiU39w** — `index.html` (Google Fonts; line ~13)
 
 ---
 

@@ -1,4 +1,5 @@
 import React from "react";
+import PropTypes from "prop-types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBuildingColumns, faSignInAlt } from "@fortawesome/free-solid-svg-icons";
 import "./Header.css";
@@ -27,3 +28,7 @@ export default function Header({ onLoginClick }) {
     </header>
   );
 }
+
+Header.propTypes = {
+  onLoginClick: PropTypes.func.isRequired,
+};

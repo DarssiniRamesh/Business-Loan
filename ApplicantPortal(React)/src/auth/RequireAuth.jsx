@@ -1,4 +1,5 @@
 import React from "react";
+import PropTypes from "prop-types";
 import { Navigate, useLocation } from "react-router-dom";
 import { getAccessToken, getRefreshToken } from "../api/tokenStorage";
 
@@ -25,3 +26,7 @@ export default function RequireAuth({ children }) {
 
   return children;
 }
+
+RequireAuth.propTypes = {
+  children: PropTypes.node.isRequired,
+};

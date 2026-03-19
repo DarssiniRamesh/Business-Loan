@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useId, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -39,7 +40,7 @@ export default function Login() {
   }, [location.search]);
 
   // If already authenticated, go straight to app
-  useMemo(() => {
+  useEffect(() => {
     if (getAccessToken()) navigate(nextPath, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -307,14 +308,25 @@ export default function Login() {
 
 /* ── Shared input component ── */
 function Field({ label, icon, type = "text", value, onChange, error, right, autoComplete, placeholder }) {
+  const inputId = useId();
+
   return (
     <div className="inp-wrap">
-      <div className="inp-lbl">{label}</div>
+      <label className="inp-lbl" htmlFor={inputId}>
+        {label}
+      </label>
       <div className={`inp-row ${error ? "err" : ""}`}>
         <span className={`inp-icon ${error ? "err" : ""}`}>
           <FontAwesomeIcon icon={icon} />
         </span>
-        <input type={type} value={value} onChange={onChange} autoComplete={autoComplete} placeholder={placeholder || label} />
+        <input
+          id={inputId}
+          type={type}
+          value={value}
+          onChange={onChange}
+          autoComplete={autoComplete}
+          placeholder={placeholder || label}
+        />
         {right}
       </div>
       {error && (
@@ -570,3 +582,25 @@ function SignupForm({ onSuccess, onSwitchToLogin }) {
     </form>
   );
 }
+
+Field.propTypes = {
+  label: PropTypes.string.isRequired,
+  icon: PropTypes.object.isRequired,
+  type: PropTypes.string,
+  value: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
+  error: PropTypes.string,
+  right: PropTypes.node,
+  autoComplete: PropTypes.string,
+  placeholder: PropTypes.string,
+};
+
+LoginForm.propTypes = {
+  onSuccess: PropTypes.func,
+  onSwitchToSignup: PropTypes.func.isRequired,
+};
+
+SignupForm.propTypes = {
+  onSuccess: PropTypes.func,
+  onSwitchToLogin: PropTypes.func.isRequired,
+};

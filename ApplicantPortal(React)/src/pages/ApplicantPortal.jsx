@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import PropTypes from "prop-types";
 import { AnimatePresence, motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -47,28 +48,36 @@ import {
 
 /* ─── Constants ─────────────────────────────────────────────── */
 const DEFAULT_REQ_SECTIONS = ["businessInfo", "ownerInfo", "loanRequest"];
-const DEFAULT_REQ_DOCS     = ["BANK_STATEMENT", "TAX_RETURN"];
+const DEFAULT_REQ_DOCS = ["BANK_STATEMENT", "TAX_RETURN"];
 
 /* ─── Helpers ───────────────────────────────────────────────── */
 function prettyJson(v) {
-  try { return JSON.stringify(typeof v === "string" ? JSON.parse(v) : v, null, 2); }
-  catch { return typeof v === "string" ? v : JSON.stringify(v, null, 2); }
+  try {
+    return JSON.stringify(typeof v === "string" ? JSON.parse(v) : v, null, 2);
+  } catch {
+    return typeof v === "string" ? v : JSON.stringify(v, null, 2);
+  }
 }
 function safeJsonStr(v) {
-  if (typeof v === "string") { JSON.parse(v); return v; }
+  if (typeof v === "string") {
+    JSON.parse(v);
+    return v;
+  }
   return JSON.stringify(v);
 }
-function shortId(id) { return id ? id.slice(-6).toUpperCase() : "------"; }
+function shortId(id) {
+  return id ? id.slice(-6).toUpperCase() : "------";
+}
 function statusTheme(s) {
   const u = (s || "").toUpperCase();
-  if (u === "SUBMITTED")                    return { bg:"#dbeafe", color:"#1d4ed8", dot:"#3b82f6" };
-  if (u === "APPROVED")                     return { bg:"#dcfce7", color:"#15803d", dot:"#22c55e" };
-  if (u === "DECLINED" || u === "REJECTED") return { bg:"#fee2e2", color:"#b91c1c", dot:"#ef4444" };
-  if (u === "IN_PROGRESS")                  return { bg:"#fef3c7", color:"#b45309", dot:"#f59e0b" };
-  return                                           { bg:"#f1f5f9", color:"#475569", dot:"#94a3b8" };
+  if (u === "SUBMITTED") return { bg: "#dbeafe", color: "#1d4ed8", dot: "#3b82f6" };
+  if (u === "APPROVED") return { bg: "#dcfce7", color: "#15803d", dot: "#22c55e" };
+  if (u === "DECLINED" || u === "REJECTED") return { bg: "#fee2e2", color: "#b91c1c", dot: "#ef4444" };
+  if (u === "IN_PROGRESS") return { bg: "#fef3c7", color: "#b45309", dot: "#f59e0b" };
+  return { bg: "#f1f5f9", color: "#475569", dot: "#94a3b8" };
 }
 
-/* ─── Global CSS ─────────────────────────────────────────────── */
+/* ─── Global CSS ────────────────────────────────────────────── */
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -341,7 +350,7 @@ body { background:var(--bg); }
 .toast.success{border-color:#bbf7d0;background:#f0fdf4;color:var(--green)}
 `;
 
-/* ─── Toast Component ─────────────────────────────────────────── */
+/* ─── Toast Component ───────────────────────────────────────── */
 function Toasts({ items }) {
   return (
     <div className="toast-wrap">
@@ -367,33 +376,40 @@ function Toasts({ items }) {
   );
 }
 
-/* ─── Main Portal ─────────────────────────────────────────────── */
+Toasts.propTypes = {
+  items: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.number.isRequired,
+      msg: PropTypes.string.isRequired,
+      type: PropTypes.oneOf(["info", "success", "error"]).isRequired,
+    })
+  ).isRequired,
+};
+
+/* ─── Main Portal ───────────────────────────────────────────── */
 export default function ApplicantPortal() {
   const navigate = useNavigate();
 
-  const [tab, setTab]         = useState("drafts");
-  const [busy, setBusy]       = useState(false);
-  const [toasts, setToasts]   = useState([]);
+  const [tab, setTab] = useState("drafts");
+  const [busy, setBusy] = useState(false);
+  const [toasts, setToasts] = useState([]);
 
-  const [drafts, setDrafts]         = useState([]);
+  const [drafts, setDrafts] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
-  const [documents, setDocuments]   = useState([]);
-  const [readiness, setReadiness]   = useState(null);
+  const [documents, setDocuments] = useState([]);
+  const [readiness, setReadiness] = useState(null);
 
-  const [sectionKey,    setSectionKey]    = useState("businessInfo");
-  const [sectionData,   setSectionData]   = useState('{\n  "companyName": "",\n  "industry": ""\n}');
+  const [sectionKey, setSectionKey] = useState("businessInfo");
+  const [sectionData, setSectionData] = useState('{\n  "companyName": "",\n  "industry": ""\n}');
   const [sectionStatus, setSectionStatus] = useState("IN_PROGRESS");
 
-  const [uploadFile,    setUploadFile]    = useState(null);
+  const [uploadFile, setUploadFile] = useState(null);
   const [uploadDocType, setUploadDocType] = useState("BANK_STATEMENT");
 
   const [reqSections, setReqSections] = useState(DEFAULT_REQ_SECTIONS.join(", "));
-  const [reqDocTypes,  setReqDocTypes]  = useState(DEFAULT_REQ_DOCS.join(", "));
+  const [reqDocTypes, setReqDocTypes] = useState(DEFAULT_REQ_DOCS.join(", "));
 
-  const selectedDraft = useMemo(
-    () => drafts.find((d) => d.id === selectedId) || null,
-    [drafts, selectedId]
-  );
+  const selectedDraft = useMemo(() => drafts.find((d) => d.id === selectedId) || null, [drafts, selectedId]);
 
   const tidRef = useRef(0);
   function addToast(msg, type = "info") {
@@ -415,10 +431,10 @@ export default function ApplicantPortal() {
       if (st === 401) return;
       const msg =
         st === 409 ? "Version conflict — draft was modified. Reloading…"
-        : st === 403 ? "You don\'t have permission to do that."
-        : st === 404 ? "Resource not found."
-        : st >= 500  ? "Server error — please try again in a moment."
-        : e?.response?.data?.message || e?.message || "Something went wrong.";
+          : st === 403 ? "You don't have permission to do that."
+            : st === 404 ? "Resource not found."
+              : st >= 500 ? "Server error — please try again in a moment."
+                : e?.response?.data?.message || e?.message || "Something went wrong.";
       addToast(msg, "error");
       if (st === 409) await fetchDrafts();
     } finally {
@@ -433,11 +449,16 @@ export default function ApplicantPortal() {
   }
 
   async function fetchDocs(id) {
-    if (!id) { setDocuments([]); return; }
+    if (!id) {
+      setDocuments([]);
+      return;
+    }
     try {
       const list = await listDocuments({ loanDraftId: id });
       setDocuments(list || []);
-    } catch { setDocuments([]); }
+    } catch {
+      setDocuments([]);
+    }
   }
 
   // Auth guard:
@@ -475,10 +496,17 @@ export default function ApplicantPortal() {
     }, "New draft created");
 
   const doPatchSection = () => {
-    if (!selectedId) { addToast("Select a draft first", "error"); return; }
+    if (!selectedId) {
+      addToast("Select a draft first", "error");
+      return;
+    }
     let payload;
-    try { payload = safeJsonStr(sectionData); }
-    catch { addToast("Invalid JSON — fix the payload and retry", "error"); return; }
+    try {
+      payload = safeJsonStr(sectionData);
+    } catch {
+      addToast("Invalid JSON — fix the payload and retry", "error");
+      return;
+    }
     run(async () => {
       const updated = await patchDraftSection({
         draftId: selectedId,
@@ -493,8 +521,14 @@ export default function ApplicantPortal() {
   };
 
   const doUpload = () => {
-    if (!uploadFile)  { addToast("Choose a file first", "error"); return; }
-    if (!selectedId)  { addToast("Select a draft first", "error"); return; }
+    if (!uploadFile) {
+      addToast("Choose a file first", "error");
+      return;
+    }
+    if (!selectedId) {
+      addToast("Select a draft first", "error");
+      return;
+    }
     run(async () => {
       await uploadDocument({
         file: uploadFile,
@@ -507,7 +541,10 @@ export default function ApplicantPortal() {
   };
 
   const doCheckReadiness = () => {
-    if (!selectedId) { addToast("Select a draft first", "error"); return; }
+    if (!selectedId) {
+      addToast("Select a draft first", "error");
+      return;
+    }
     run(async () => {
       const rs = reqSections.split(",").map((s) => s.trim()).filter(Boolean);
       const rd = reqDocTypes.split(",").map((s) => s.trim()).filter(Boolean);
@@ -567,16 +604,22 @@ export default function ApplicantPortal() {
     setBusy(true);
     try {
       const rt = getRefreshToken();
-      if (rt) { try { await logout({ refreshToken: rt }); } catch {} }
+      if (rt) {
+        try {
+          await logout({ refreshToken: rt });
+        } catch {}
+      }
       clearTokens();
       navigate("/login", { replace: true });
-    } finally { setBusy(false); }
+    } finally {
+      setBusy(false);
+    }
   };
 
   const TABS = [
-    { key: "drafts",    label: "Applications", icon: faBriefcase    },
-    { key: "documents", label: "Documents",     icon: faFileContract },
-    { key: "submit",    label: "Submit",        icon: faPaperPlane   },
+    { key: "drafts", label: "Applications", icon: faBriefcase },
+    { key: "documents", label: "Documents", icon: faFileContract },
+    { key: "submit", label: "Submit", icon: faPaperPlane },
   ];
 
   /* ── Render ── */
@@ -584,7 +627,6 @@ export default function ApplicantPortal() {
     <>
       <style>{CSS}</style>
       <div className="ap">
-
         {/* Header */}
         <header className="ap-hdr">
           <div className="ap-hdr-in">
@@ -629,7 +671,9 @@ export default function ApplicantPortal() {
                   className={`ap-tab ${tab === t.key ? "on" : ""}`}
                   onClick={() => setTab(t.key)}
                 >
-                  <span className="ti"><FontAwesomeIcon icon={t.icon} /></span>
+                  <span className="ti">
+                    <FontAwesomeIcon icon={t.icon} />
+                  </span>
                   {t.label}
                 </button>
               ))}
@@ -639,13 +683,14 @@ export default function ApplicantPortal() {
 
         {/* Body */}
         <div className="ap-body">
-
           {/* Sidebar */}
           <aside className="ap-aside">
             <div className="card">
               <div className="card-hd">
                 <div className="card-title">
-                  <span className="card-ico"><FontAwesomeIcon icon={faFolderOpen} /></span>
+                  <span className="card-ico">
+                    <FontAwesomeIcon icon={faFolderOpen} />
+                  </span>
                   My Drafts
                 </div>
                 <motion.button
@@ -662,7 +707,9 @@ export default function ApplicantPortal() {
               <div className="card-bd">
                 {drafts.length === 0 ? (
                   <div className="ap-empty">
-                    <div className="e-ico"><FontAwesomeIcon icon={faBriefcase} /></div>
+                    <div className="e-ico">
+                      <FontAwesomeIcon icon={faBriefcase} />
+                    </div>
                     <div className="e-title">No applications yet</div>
                     <div className="e-sub">Create your first draft to begin</div>
                     <motion.button
@@ -691,7 +738,9 @@ export default function ApplicantPortal() {
                           whileHover={{ x: 3 }}
                           whileTap={{ scale: 0.99 }}
                         >
-                          <div className="d-num">#{shortId(d.id)} · v{d.version ?? 0}</div>
+                          <div className="d-num">
+                            #{shortId(d.id)} · v{d.version ?? 0}
+                          </div>
                           <div className="d-name">Draft application</div>
                           <div className="row2">
                             <span className="badge" style={{ background: th.bg, color: th.color }}>
@@ -700,7 +749,15 @@ export default function ApplicantPortal() {
                             </span>
                           </div>
                           {d.decision && (
-                            <div style={{ marginTop: 5, fontSize: 11.5, fontWeight: 700, color: "var(--blue)", fontFamily: "var(--mono)" }}>
+                            <div
+                              style={{
+                                marginTop: 5,
+                                fontSize: 11.5,
+                                fontWeight: 700,
+                                color: "var(--blue)",
+                                fontFamily: "var(--mono)",
+                              }}
+                            >
                               ⟶ {d.decision}
                             </div>
                           )}
@@ -711,26 +768,34 @@ export default function ApplicantPortal() {
                 )}
 
                 {selectedId && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.2 }}
-                  >
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
                     <div className="divider" />
-                    <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
+                    <div
+                      style={{
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        letterSpacing: ".07em",
+                        textTransform: "uppercase",
+                        color: "var(--muted)",
+                        marginBottom: 10,
+                      }}
+                    >
                       Quick actions
                     </div>
                     <div className="row" style={{ gap: 6 }}>
-                      <button className="btn btn-ghost btn-sm" disabled={busy} onClick={doCheckReadiness}
-                        title="Check readiness">
+                      <button className="btn btn-ghost btn-sm" disabled={busy} onClick={doCheckReadiness} title="Check readiness">
                         <FontAwesomeIcon icon={faShieldHalved} /> Check
                       </button>
-                      <button className="btn btn-success btn-sm" disabled={busy} onClick={doDecide}
-                        title="Run decisioning">
+                      <button className="btn btn-success btn-sm" disabled={busy} onClick={doDecide} title="Run decisioning">
                         <FontAwesomeIcon icon={faBolt} /> Decide
                       </button>
-                      <button className="btn btn-danger btn-sm" disabled={busy} onClick={doDeleteDraft}
-                        style={{ width: 33, padding: 0 }} title="Delete draft">
+                      <button
+                        className="btn btn-danger btn-sm"
+                        disabled={busy}
+                        onClick={doDeleteDraft}
+                        style={{ width: 33, padding: 0 }}
+                        title="Delete draft"
+                      >
                         <FontAwesomeIcon icon={faTrash} />
                       </button>
                     </div>
@@ -743,12 +808,14 @@ export default function ApplicantPortal() {
               className="btn btn-ghost btn-sm"
               style={{ width: "100%", justifyContent: "center" }}
               disabled={busy}
-              onClick={() => run(async () => {
-                const list = await fetchDrafts();
-                if (selectedId && !list.find((d) => d.id === selectedId)) {
-                  setSelectedId(list[0]?.id || null);
-                }
-              }, "Refreshed")}
+              onClick={() =>
+                run(async () => {
+                  const list = await fetchDrafts();
+                  if (selectedId && !list.find((d) => d.id === selectedId)) {
+                    setSelectedId(list[0]?.id || null);
+                  }
+                }, "Refreshed")
+              }
             >
               <FontAwesomeIcon icon={faRotateRight} /> Refresh list
             </button>
@@ -768,10 +835,14 @@ export default function ApplicantPortal() {
                 >
                   <DraftsPanel
                     draft={selectedDraft}
-                    sectionKey={sectionKey}       setSectionKey={setSectionKey}
-                    sectionData={sectionData}     setSectionData={setSectionData}
-                    sectionStatus={sectionStatus} setSectionStatus={setSectionStatus}
-                    onSave={doPatchSection}        busy={busy}
+                    sectionKey={sectionKey}
+                    setSectionKey={setSectionKey}
+                    sectionData={sectionData}
+                    setSectionData={setSectionData}
+                    sectionStatus={sectionStatus}
+                    setSectionStatus={setSectionStatus}
+                    onSave={doPatchSection}
+                    busy={busy}
                   />
                 </motion.div>
               )}
@@ -788,8 +859,10 @@ export default function ApplicantPortal() {
                   <DocumentsPanel
                     selectedId={selectedId}
                     documents={documents}
-                    uploadFile={uploadFile}       setUploadFile={setUploadFile}
-                    uploadDocType={uploadDocType} setUploadDocType={setUploadDocType}
+                    uploadFile={uploadFile}
+                    setUploadFile={setUploadFile}
+                    uploadDocType={uploadDocType}
+                    setUploadDocType={setUploadDocType}
                     onUpload={doUpload}
                     onDelete={doDeleteDoc}
                     busy={busy}
@@ -808,8 +881,10 @@ export default function ApplicantPortal() {
                 >
                   <SubmitPanel
                     draft={selectedDraft}
-                    reqSections={reqSections} setReqSections={setReqSections}
-                    reqDocTypes={reqDocTypes}  setReqDocTypes={setReqDocTypes}
+                    reqSections={reqSections}
+                    setReqSections={setReqSections}
+                    reqDocTypes={reqDocTypes}
+                    setReqDocTypes={setReqDocTypes}
                     readiness={readiness}
                     onCheck={doCheckReadiness}
                     onSubmit={doSubmit}
@@ -827,9 +902,23 @@ export default function ApplicantPortal() {
   );
 }
 
-/* ─── Drafts Panel ────────────────────────────────────────────── */
-function DraftsPanel({ draft, sectionKey, setSectionKey, sectionData, setSectionData, sectionStatus, setSectionStatus, onSave, busy }) {
+/* ─── Drafts Panel ──────────────────────────────────────────── */
+function DraftsPanel({
+  draft,
+  sectionKey,
+  setSectionKey,
+  sectionData,
+  setSectionData,
+  sectionStatus,
+  setSectionStatus,
+  onSave,
+  busy,
+}) {
   const th = statusTheme(draft?.status);
+
+  const sectionKeyInputId = useId();
+  const sectionStatusSelectId = useId();
+  const sectionPayloadTextareaId = useId();
 
   return (
     <>
@@ -837,14 +926,18 @@ function DraftsPanel({ draft, sectionKey, setSectionKey, sectionData, setSection
       <div className="card">
         <div className="card-hd">
           <div className="card-title">
-            <span className="card-ico"><FontAwesomeIcon icon={faGaugeHigh} /></span>
+            <span className="card-ico">
+              <FontAwesomeIcon icon={faGaugeHigh} />
+            </span>
             Application Overview
           </div>
         </div>
         <div className="card-bd">
           {!draft ? (
             <div className="ap-empty">
-              <div className="e-ico"><FontAwesomeIcon icon={faBriefcase} /></div>
+              <div className="e-ico">
+                <FontAwesomeIcon icon={faBriefcase} />
+              </div>
               <div className="e-title">No draft selected</div>
               <div className="e-sub">Select or create a draft from the sidebar to view details</div>
             </div>
@@ -852,7 +945,9 @@ function DraftsPanel({ draft, sectionKey, setSectionKey, sectionData, setSection
             <motion.div key={draft.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
               <div className="stats">
                 <div className="stat">
-                  <div className="stat-lbl"><FontAwesomeIcon icon={faClock} /> Status</div>
+                  <div className="stat-lbl">
+                    <FontAwesomeIcon icon={faClock} /> Status
+                  </div>
                   <div className="stat-val">
                     <span className="badge" style={{ background: th.bg, color: th.color, fontSize: 12 }}>
                       <span className="bdot" style={{ background: th.dot }} />
@@ -861,17 +956,23 @@ function DraftsPanel({ draft, sectionKey, setSectionKey, sectionData, setSection
                   </div>
                 </div>
                 <div className="stat">
-                  <div className="stat-lbl"><FontAwesomeIcon icon={faListCheck} /> Current step</div>
+                  <div className="stat-lbl">
+                    <FontAwesomeIcon icon={faListCheck} /> Current step
+                  </div>
                   <div className="stat-val" style={{ fontSize: 13, fontFamily: "var(--mono)", fontWeight: 600 }}>
                     {draft.currentStep || "—"}
                   </div>
                 </div>
                 <div className="stat">
-                  <div className="stat-lbl"><FontAwesomeIcon icon={faShieldHalved} /> Risk score</div>
+                  <div className="stat-lbl">
+                    <FontAwesomeIcon icon={faShieldHalved} /> Risk score
+                  </div>
                   <div className="stat-val">{draft.riskScore ?? "—"}</div>
                 </div>
                 <div className="stat">
-                  <div className="stat-lbl"><FontAwesomeIcon icon={faBolt} /> Decision</div>
+                  <div className="stat-lbl">
+                    <FontAwesomeIcon icon={faBolt} /> Decision
+                  </div>
                   <div className="stat-val" style={{ fontSize: 13.5, color: draft.decision ? "var(--blue)" : "var(--muted)" }}>
                     {draft.decision ?? "Pending"}
                   </div>
@@ -880,10 +981,10 @@ function DraftsPanel({ draft, sectionKey, setSectionKey, sectionData, setSection
 
               {draft.decisionReason && (
                 <div className="stat" style={{ marginTop: 10 }}>
-                  <div className="stat-lbl"><FontAwesomeIcon icon={faFileContract} /> Decision reason</div>
-                  <div style={{ marginTop: 5, fontSize: 13.5, color: "var(--slate)", lineHeight: 1.65 }}>
-                    {draft.decisionReason}
+                  <div className="stat-lbl">
+                    <FontAwesomeIcon icon={faFileContract} /> Decision reason
                   </div>
+                  <div style={{ marginTop: 5, fontSize: 13.5, color: "var(--slate)", lineHeight: 1.65 }}>{draft.decisionReason}</div>
                 </div>
               )}
             </motion.div>
@@ -895,7 +996,9 @@ function DraftsPanel({ draft, sectionKey, setSectionKey, sectionData, setSection
       <div className="card">
         <div className="card-hd">
           <div className="card-title">
-            <span className="card-ico"><FontAwesomeIcon icon={faFileArrowUp} /></span>
+            <span className="card-ico">
+              <FontAwesomeIcon icon={faFileArrowUp} />
+            </span>
             Edit Section Data
           </div>
           <motion.button
@@ -905,9 +1008,7 @@ function DraftsPanel({ draft, sectionKey, setSectionKey, sectionData, setSection
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.96 }}
           >
-            {busy
-              ? <FontAwesomeIcon icon={faSpinner} className="spin" />
-              : <FontAwesomeIcon icon={faFileArrowUp} />}
+            {busy ? <FontAwesomeIcon icon={faSpinner} className="spin" /> : <FontAwesomeIcon icon={faFileArrowUp} />}
             Save section
           </motion.button>
         </div>
@@ -916,8 +1017,11 @@ function DraftsPanel({ draft, sectionKey, setSectionKey, sectionData, setSection
 
           <div className="frow" style={{ marginBottom: 12 }}>
             <div className="fcol">
-              <label className="lbl">Section key</label>
+              <label className="lbl" htmlFor={sectionKeyInputId}>
+                Section key
+              </label>
               <input
+                id={sectionKeyInputId}
                 className="inp"
                 value={sectionKey}
                 onChange={(e) => setSectionKey(e.target.value)}
@@ -925,8 +1029,15 @@ function DraftsPanel({ draft, sectionKey, setSectionKey, sectionData, setSection
               />
             </div>
             <div className="fcol">
-              <label className="lbl">Section status</label>
-              <select className="sel" value={sectionStatus} onChange={(e) => setSectionStatus(e.target.value)}>
+              <label className="lbl" htmlFor={sectionStatusSelectId}>
+                Section status
+              </label>
+              <select
+                id={sectionStatusSelectId}
+                className="sel"
+                value={sectionStatus}
+                onChange={(e) => setSectionStatus(e.target.value)}
+              >
                 <option value="IN_PROGRESS">IN_PROGRESS</option>
                 <option value="COMPLETED">COMPLETED</option>
               </select>
@@ -934,8 +1045,11 @@ function DraftsPanel({ draft, sectionKey, setSectionKey, sectionData, setSection
           </div>
 
           <div className="fcol">
-            <label className="lbl">JSON payload</label>
+            <label className="lbl" htmlFor={sectionPayloadTextareaId}>
+              JSON payload
+            </label>
             <textarea
+              id={sectionPayloadTextareaId}
               className="txa"
               value={sectionData}
               onChange={(e) => setSectionData(e.target.value)}
@@ -959,15 +1073,41 @@ function DraftsPanel({ draft, sectionKey, setSectionKey, sectionData, setSection
   );
 }
 
-/* ─── Documents Panel ─────────────────────────────────────────── */
-function DocumentsPanel({ selectedId, documents, uploadFile, setUploadFile, uploadDocType, setUploadDocType, onUpload, onDelete, busy }) {
+DraftsPanel.propTypes = {
+  draft: PropTypes.object,
+  sectionKey: PropTypes.string.isRequired,
+  setSectionKey: PropTypes.func.isRequired,
+  sectionData: PropTypes.string.isRequired,
+  setSectionData: PropTypes.func.isRequired,
+  sectionStatus: PropTypes.string.isRequired,
+  setSectionStatus: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired,
+  busy: PropTypes.bool.isRequired,
+};
+
+/* ─── Documents Panel ───────────────────────────────────────── */
+function DocumentsPanel({
+  selectedId,
+  documents,
+  uploadFile,
+  setUploadFile,
+  uploadDocType,
+  setUploadDocType,
+  onUpload,
+  onDelete,
+  busy,
+}) {
+  const documentTypeSelectId = useId();
+
   return (
     <>
       {/* Upload card */}
       <div className="card">
         <div className="card-hd">
           <div className="card-title">
-            <span className="card-ico"><FontAwesomeIcon icon={faFileArrowUp} /></span>
+            <span className="card-ico">
+              <FontAwesomeIcon icon={faFileArrowUp} />
+            </span>
             Upload Document
           </div>
           <motion.button
@@ -977,9 +1117,7 @@ function DocumentsPanel({ selectedId, documents, uploadFile, setUploadFile, uplo
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.96 }}
           >
-            {busy
-              ? <FontAwesomeIcon icon={faSpinner} className="spin" />
-              : <FontAwesomeIcon icon={faFileArrowUp} />}
+            {busy ? <FontAwesomeIcon icon={faSpinner} className="spin" /> : <FontAwesomeIcon icon={faFileArrowUp} />}
             Upload
           </motion.button>
         </div>
@@ -990,7 +1128,9 @@ function DocumentsPanel({ selectedId, documents, uploadFile, setUploadFile, uplo
             <div className="fcol" style={{ flex: 2 }}>
               <label className="lbl">File (PDF · PNG · JPG)</label>
               <label className="file-drop">
-                <div className="fd-ico"><FontAwesomeIcon icon={faFile} /></div>
+                <div className="fd-ico">
+                  <FontAwesomeIcon icon={faFile} />
+                </div>
                 <div>
                   <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--blue)" }}>
                     {uploadFile ? uploadFile.name : "Click to choose a file"}
@@ -1007,8 +1147,15 @@ function DocumentsPanel({ selectedId, documents, uploadFile, setUploadFile, uplo
               </label>
             </div>
             <div className="fcol">
-              <label className="lbl">Document type</label>
-              <select className="sel" value={uploadDocType} onChange={(e) => setUploadDocType(e.target.value)}>
+              <label className="lbl" htmlFor={documentTypeSelectId}>
+                Document type
+              </label>
+              <select
+                id={documentTypeSelectId}
+                className="sel"
+                value={uploadDocType}
+                onChange={(e) => setUploadDocType(e.target.value)}
+              >
                 <option value="BANK_STATEMENT">BANK_STATEMENT</option>
                 <option value="TAX_RETURN">TAX_RETURN</option>
                 <option value="OTHER">OTHER</option>
@@ -1022,7 +1169,9 @@ function DocumentsPanel({ selectedId, documents, uploadFile, setUploadFile, uplo
       <div className="card">
         <div className="card-hd">
           <div className="card-title">
-            <span className="card-ico"><FontAwesomeIcon icon={faFolderOpen} /></span>
+            <span className="card-ico">
+              <FontAwesomeIcon icon={faFolderOpen} />
+            </span>
             Uploaded Files
           </div>
           <span className="badge" style={{ background: "var(--blue3)", color: "var(--blue)", fontSize: 12 }}>
@@ -1032,7 +1181,9 @@ function DocumentsPanel({ selectedId, documents, uploadFile, setUploadFile, uplo
         <div className="card-bd">
           {documents.length === 0 ? (
             <div className="ap-empty">
-              <div className="e-ico"><FontAwesomeIcon icon={faFileContract} /></div>
+              <div className="e-ico">
+                <FontAwesomeIcon icon={faFileContract} />
+              </div>
               <div className="e-title">No documents yet</div>
               <div className="e-sub">Upload files above to attach them to this draft</div>
             </div>
@@ -1049,9 +1200,20 @@ function DocumentsPanel({ selectedId, documents, uploadFile, setUploadFile, uplo
                     transition={{ delay: i * 0.05 }}
                     layout
                   >
-                    <div className="doc-ico"><FontAwesomeIcon icon={faFile} /></div>
+                    <div className="doc-ico">
+                      <FontAwesomeIcon icon={faFile} />
+                    </div>
                     <div className="grow" style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--navy)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div
+                        style={{
+                          fontSize: 13.5,
+                          fontWeight: 600,
+                          color: "var(--navy)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         {d.originalFilename}
                       </div>
                       <div style={{ fontSize: 12, color: "var(--muted)", fontFamily: "var(--mono)", marginTop: 2 }}>
@@ -1088,26 +1250,43 @@ function DocumentsPanel({ selectedId, documents, uploadFile, setUploadFile, uplo
   );
 }
 
-/* ─── Submit Panel ────────────────────────────────────────────── */
+DocumentsPanel.propTypes = {
+  selectedId: PropTypes.string,
+  documents: PropTypes.arrayOf(PropTypes.object).isRequired,
+  uploadFile: PropTypes.any,
+  setUploadFile: PropTypes.func.isRequired,
+  uploadDocType: PropTypes.string.isRequired,
+  setUploadDocType: PropTypes.func.isRequired,
+  onUpload: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  busy: PropTypes.bool.isRequired,
+};
+
+/* ─── Submit Panel ──────────────────────────────────────────── */
 function SubmitPanel({ draft, reqSections, setReqSections, reqDocTypes, setReqDocTypes, readiness, onCheck, onSubmit, busy }) {
   const ready = readiness?.ready === true;
+
+  const requiredSectionsInputId = useId();
+  const requiredDocTypesInputId = useId();
 
   return (
     <div className="card">
       <div className="card-hd">
         <div className="card-title">
-          <span className="card-ico"><FontAwesomeIcon icon={faPaperPlane} /></span>
+          <span className="card-ico">
+            <FontAwesomeIcon icon={faPaperPlane} />
+          </span>
           Review &amp; Submit
         </div>
       </div>
       <div className="card-bd">
-        <div className="cnote">
-          All required sections must be COMPLETED · Required document types must be present
-        </div>
+        <div className="cnote">All required sections must be COMPLETED · Required document types must be present</div>
 
         {!draft ? (
           <div className="ap-empty">
-            <div className="e-ico"><FontAwesomeIcon icon={faListCheck} /></div>
+            <div className="e-ico">
+              <FontAwesomeIcon icon={faListCheck} />
+            </div>
             <div className="e-title">No draft selected</div>
             <div className="e-sub">Select an application from the sidebar first</div>
           </div>
@@ -1115,8 +1294,11 @@ function SubmitPanel({ draft, reqSections, setReqSections, reqDocTypes, setReqDo
           <>
             <div className="frow">
               <div className="fcol">
-                <label className="lbl">Required sections</label>
+                <label className="lbl" htmlFor={requiredSectionsInputId}>
+                  Required sections
+                </label>
                 <input
+                  id={requiredSectionsInputId}
                   className="inp"
                   value={reqSections}
                   onChange={(e) => setReqSections(e.target.value)}
@@ -1124,8 +1306,11 @@ function SubmitPanel({ draft, reqSections, setReqSections, reqDocTypes, setReqDo
                 />
               </div>
               <div className="fcol">
-                <label className="lbl">Required document types</label>
+                <label className="lbl" htmlFor={requiredDocTypesInputId}>
+                  Required document types
+                </label>
                 <input
+                  id={requiredDocTypesInputId}
                   className="inp"
                   value={reqDocTypes}
                   onChange={(e) => setReqDocTypes(e.target.value)}
@@ -1135,29 +1320,13 @@ function SubmitPanel({ draft, reqSections, setReqSections, reqDocTypes, setReqDo
             </div>
 
             <div className="row mt14">
-              <motion.button
-                className="btn btn-dark"
-                onClick={onCheck}
-                disabled={busy}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                {busy
-                  ? <FontAwesomeIcon icon={faSpinner} className="spin" />
-                  : <FontAwesomeIcon icon={faShieldHalved} />}
+              <motion.button className="btn btn-dark" onClick={onCheck} disabled={busy} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                {busy ? <FontAwesomeIcon icon={faSpinner} className="spin" /> : <FontAwesomeIcon icon={faShieldHalved} />}
                 Check readiness
               </motion.button>
 
-              <motion.button
-                className="btn btn-primary"
-                onClick={onSubmit}
-                disabled={busy || !ready}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-              >
-                {busy
-                  ? <FontAwesomeIcon icon={faSpinner} className="spin" />
-                  : <FontAwesomeIcon icon={faPaperPlane} />}
+              <motion.button className="btn btn-primary" onClick={onSubmit} disabled={busy || !ready} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                {busy ? <FontAwesomeIcon icon={faSpinner} className="spin" /> : <FontAwesomeIcon icon={faPaperPlane} />}
                 Submit application
               </motion.button>
             </div>
@@ -1173,17 +1342,16 @@ function SubmitPanel({ draft, reqSections, setReqSections, reqDocTypes, setReqDo
                 >
                   <div className="rdy-hd">
                     <div className="row2">
-                      <FontAwesomeIcon
-                        icon={ready ? faCircleCheck : faCircleXmark}
-                        style={{ fontSize: 18, color: ready ? "var(--green)" : "var(--amber)" }}
-                      />
+                      <FontAwesomeIcon icon={ready ? faCircleCheck : faCircleXmark} style={{ fontSize: 18, color: ready ? "var(--green)" : "var(--amber)" }} />
                       <span style={{ fontSize: 14, fontWeight: 700 }}>Readiness check</span>
                     </div>
                     <span
                       className="badge"
-                      style={ready
-                        ? { background: "#dcfce7", color: "var(--green)" }
-                        : { background: "#fef3c7", color: "var(--amber)" }}
+                      style={
+                        ready
+                          ? { background: "#dcfce7", color: "var(--green)" }
+                          : { background: "#fef3c7", color: "var(--amber)" }
+                      }
                     >
                       <span className="bdot" style={{ background: ready ? "var(--green)" : "var(--amber)" }} />
                       {ready ? "READY" : "NOT READY"}
@@ -1199,7 +1367,19 @@ function SubmitPanel({ draft, reqSections, setReqSections, reqDocTypes, setReqDo
                     ) : (
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10, display: "flex", alignItems: "center", gap: 5 }}>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              letterSpacing: ".07em",
+                              textTransform: "uppercase",
+                              color: "var(--muted)",
+                              marginBottom: 10,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 5,
+                            }}
+                          >
                             <FontAwesomeIcon icon={faListCheck} /> Missing sections
                           </div>
                           <div className="stack-sm">
@@ -1207,15 +1387,29 @@ function SubmitPanel({ draft, reqSections, setReqSections, reqDocTypes, setReqDo
                               <div className="row2" style={{ fontSize: 13, color: "var(--green)", fontWeight: 600 }}>
                                 <FontAwesomeIcon icon={faCircleCheck} /> All sections complete
                               </div>
-                            ) : (readiness.missingSections || []).map((s) => (
-                              <div key={s} className="miss">
-                                <FontAwesomeIcon icon={faTriangleExclamation} /> {s}
-                              </div>
-                            ))}
+                            ) : (
+                              (readiness.missingSections || []).map((s) => (
+                                <div key={s} className="miss">
+                                  <FontAwesomeIcon icon={faTriangleExclamation} /> {s}
+                                </div>
+                              ))
+                            )}
                           </div>
                         </div>
                         <div>
-                          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10, display: "flex", alignItems: "center", gap: 5 }}>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              letterSpacing: ".07em",
+                              textTransform: "uppercase",
+                              color: "var(--muted)",
+                              marginBottom: 10,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 5,
+                            }}
+                          >
                             <FontAwesomeIcon icon={faFileContract} /> Missing documents
                           </div>
                           <div className="stack-sm">
@@ -1223,11 +1417,13 @@ function SubmitPanel({ draft, reqSections, setReqSections, reqDocTypes, setReqDo
                               <div className="row2" style={{ fontSize: 13, color: "var(--green)", fontWeight: 600 }}>
                                 <FontAwesomeIcon icon={faCircleCheck} /> All documents present
                               </div>
-                            ) : (readiness.missingDocumentTypes || []).map((s) => (
-                              <div key={s} className="miss">
-                                <FontAwesomeIcon icon={faTriangleExclamation} /> {s}
-                              </div>
-                            ))}
+                            ) : (
+                              (readiness.missingDocumentTypes || []).map((s) => (
+                                <div key={s} className="miss">
+                                  <FontAwesomeIcon icon={faTriangleExclamation} /> {s}
+                                </div>
+                              ))
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1242,3 +1438,15 @@ function SubmitPanel({ draft, reqSections, setReqSections, reqDocTypes, setReqDo
     </div>
   );
 }
+
+SubmitPanel.propTypes = {
+  draft: PropTypes.object,
+  reqSections: PropTypes.string.isRequired,
+  setReqSections: PropTypes.func.isRequired,
+  reqDocTypes: PropTypes.string.isRequired,
+  setReqDocTypes: PropTypes.func.isRequired,
+  readiness: PropTypes.object,
+  onCheck: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+  busy: PropTypes.bool.isRequired,
+};

@@ -1,4 +1,5 @@
 import React, { useRef, useLayoutEffect } from 'react';
+import PropTypes from "prop-types";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLock, faArrowRight, faFileUpload, faChartLine, faUserShield } from '@fortawesome/free-solid-svg-icons';
 import './Home.css';
@@ -6,18 +7,27 @@ import './Home.css';
 function useFadeInOnScroll(ref, delay = 0) {
   useLayoutEffect(() => {
     const node = ref.current;
-    if (!node) return;
+    const w = globalThis?.window;
+    if (!node || !w) return;
+
+    let timeoutId = null;
+
     function onScroll() {
       const rect = node.getBoundingClientRect();
-      if (rect.top < window.innerHeight - 50) {
+      if (rect.top < w.innerHeight - 50) {
         node.classList.add("fade-in--visible");
       }
     }
-    setTimeout(() => {
-      window.addEventListener("scroll", onScroll);
+
+    timeoutId = w.setTimeout(() => {
+      w.addEventListener("scroll", onScroll);
       onScroll();
-      return () => window.removeEventListener("scroll", onScroll);
     }, delay);
+
+    return () => {
+      if (timeoutId) w.clearTimeout(timeoutId);
+      w.removeEventListener("scroll", onScroll);
+    };
   }, [ref, delay]);
 }
 
@@ -81,3 +91,7 @@ export default function Home({ onGetStartedClick }) {
     </main>
   );
 }
+
+Home.propTypes = {
+  onGetStartedClick: PropTypes.func.isRequired,
+};

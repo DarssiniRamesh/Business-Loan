@@ -1,8 +1,9 @@
 #!/bin/bash
-cd /home/kavia/workspace/code-generation/Business-Loan/ApplicantPortalReact
-npm run build
-EXIT_CODE=$?
-if [ $EXIT_CODE -ne 0 ]; then
-   exit 1
-fi
+set -euo pipefail
 
+cd /home/kavia/workspace/code-generation/Business-Loan/ApplicantPortal\(React\)
+
+# Ensure devDependencies (vite) are available in CI/lint environment.
+npm ci
+
+npm run build

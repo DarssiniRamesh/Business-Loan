@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from "prop-types";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEnvelope, faKey } from '@fortawesome/free-solid-svg-icons';
 import './Login.css';
@@ -59,3 +60,9 @@ export default function Login({ onClose, onSwitchToSignup, onLogin }) {
     </div>
   );
 }
+
+Login.propTypes = {
+  onClose: PropTypes.func.isRequired,
+  onSwitchToSignup: PropTypes.func.isRequired,
+  onLogin: PropTypes.func.isRequired,
+};

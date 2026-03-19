@@ -1,0 +1,116 @@
+.auth-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #1d4ed819;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  animation: fadein-over 0.22s linear;
+}
+@keyframes fadein-over {
+  from { opacity: 0;}
+  to { opacity: 1;}
+}
+.auth-modal {
+  background: #fff;
+  padding: 2.5rem 2.1rem 2.1rem 2.1rem;
+  border-radius: 16px;
+  filter: drop-shadow(0 2px 20px #2563EB18);
+  min-width: 320px;
+  animation: popin-modal 0.38s cubic-bezier(.51,1.32,.51,1.05);
+  box-shadow: 0 6px 32px #1d4ed813;
+  position: relative;
+}
+@keyframes popin-modal {
+  from { transform: scale(0.95) translateY(40px); opacity: 0;}
+  to { transform: scale(1) translateY(0px); opacity: 1;}
+}
+.auth-modal h2 {
+  font-weight: 800;
+  font-size: 1.45rem;
+  color: #1D4ED8;
+  margin: 0 0 1.6rem 0;
+  text-align: center;
+}
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+.auth-form__group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.auth-form__icon {
+  position: absolute;
+  left: 0.7rem;
+  color: #1D4ED8;
+  font-size: 1.08rem;
+}
+.auth-form__group input {
+  width: 100%;
+  padding: 0.6rem 0.5rem 0.6rem 2.4rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 7px;
+  font-size: 1rem;
+  font-family: inherit;
+  background: #f9fafb;
+  transition: border-color 0.18s;
+}
+.auth-form__group input:focus {
+  border-color: #10B981;
+  outline: none;
+}
+
+.auth-form__submit {
+  background: linear-gradient(90deg,#1D4ED8 60%,#10B981 120%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.08rem;
+  padding: 0.7rem 1.7rem;
+  border-radius: 7px;
+  box-shadow: 0 2px 12px #1d4ed80d;
+  border: none;
+  margin-top: 0.5rem;
+  cursor: pointer;
+  transition: background 0.13s;
+}
+.auth-form__submit:active {
+  background: #10B981;
+}
+.auth-form__error {
+  color: #F59E0B;
+  font-size: 0.98rem;
+  margin: 0.1em 0 0.12em 0;
+}
+.auth-modal__switch {
+  margin-top: 1.25em;
+  text-align: center;
+  font-size: 0.98rem;
+}
+.auth-link-btn {
+  background: none;
+  border: none;
+  color: #1D4ED8;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-left: 0.15em;
+}
+.auth-modal__close {
+  position: absolute;
+  right: 1.3rem;
+  top: 1.1rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #D1D5DB;
+  cursor: pointer;
+  transition: color 0.18s;
+}
+.auth-modal__close:hover {
+  color: #1D4ED8;
+}

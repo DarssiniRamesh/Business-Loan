@@ -1,0 +1,11 @@
+@import url('./components/Header.css');
+@import url('./components/Footer.css');
+@import url('./components/Home.css');
+@import url('./components/Login.css');
+
+.App {
+  min-height: 100vh;
+  background: #F9FAFB;
+  display: flex;
+  flex-direction: column;
+}

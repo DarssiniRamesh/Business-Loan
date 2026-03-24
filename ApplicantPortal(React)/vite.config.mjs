@@ -58,6 +58,7 @@ export default defineConfig(({ mode }) => {
       allowedHosts: [
         "vscode-internal-21566-beta.beta01.cloud.kavia.ai",
         "vscode-internal-10060-chat.chat01.cloud.kavia.ai",
+        "vscode-internal-36753-beta.beta01.cloud.kavia.ai",
       ],
     },
 
